@@ -49,7 +49,9 @@ if not SECRET_KEY:
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DEBUG", "False").lower() in {"1", "true", "yes", "y"}
 
-ALLOWED_HOSTS = ['172.17.11.18', '127.0.0.1', 'localhost', '0.0.0.0']
+# Allow list from environment to support dynamic dev hosts (comma separated)
+_env_allowed_hosts = os.environ.get('ALLOWED_HOSTS', '172.17.11.18,127.0.0.1,localhost,0.0.0.0')
+ALLOWED_HOSTS = [h.strip() for h in _env_allowed_hosts.split(',') if h.strip()]
 
 
 # Application definition
@@ -97,8 +99,10 @@ MIDDLEWARE = [
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5174",  # si estás en local
-    "http://172.17.11.18:5174",  # tu IP real desde Vite
-    "http://172.17.11.18:8000",  # tu IP real desde Vite
+    "http://172.17.11.13:5174",  # IP del servidor Vite
+    "http://172.17.11.13:8000",  # IP del servidor Django
+    "http://172.17.11.18:5174",  # IP anterior (mantener por compatibilidad)
+    "http://172.17.11.18:8000",
 ]
 
 # URL handling
