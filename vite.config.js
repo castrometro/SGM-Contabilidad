@@ -7,7 +7,7 @@ import path from 'path'
 export default defineConfig({
   plugins: [react(), tailwindcss(),],
   define: {
-    'import.meta.env.VITE_MEDIA_BASE_URL': JSON.stringify(process.env.VITE_MEDIA_BASE_URL || 'http://172.17.11.18:8000')
+    'import.meta.env.VITE_MEDIA_BASE_URL': JSON.stringify(process.env.VITE_MEDIA_BASE_URL || 'http://172.17.11.13:8000')
   },
   resolve: {
     alias: {

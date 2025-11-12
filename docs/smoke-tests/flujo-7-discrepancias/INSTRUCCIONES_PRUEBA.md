@@ -40,7 +40,7 @@ Estado actual: 'archivos_completos' o 'datos_consolidados'
 http://172.17.11.18:5174
 
 # Backend activo
-http://172.17.11.18:8000
+http://172.17.11.13:8000
 
 # Usuario: analista.nomina@bdo.cl
 # Puede generar discrepancias
@@ -295,25 +295,25 @@ Si se detectaron discrepancias, probar los endpoints:
 
 ```bash
 # Obtener token (si no lo tienes)
-TOKEN=$(curl -s -X POST http://172.17.11.18:8000/api/auth/token/ \
+TOKEN=$(curl -s -X POST http://172.17.11.13:8000/api/auth/token/ \
   -H "Content-Type: application/json" \
   -d '{"correo_bdo":"analista.nomina@bdo.cl","password":"tu_password"}' \
   | jq -r '.access')
 
 # 1. Estado de discrepancias
-curl -s -X GET "http://172.17.11.18:8000/api/nomina/discrepancias/estado/35/" \
+curl -s -X GET "http://172.17.11.13:8000/api/nomina/discrepancias/estado/35/" \
   -H "Authorization: Bearer $TOKEN" | jq
 
 # 2. Resumen detallado
-curl -s -X GET "http://172.17.11.18:8000/api/nomina/discrepancias/resumen/35/" \
+curl -s -X GET "http://172.17.11.13:8000/api/nomina/discrepancias/resumen/35/" \
   -H "Authorization: Bearer $TOKEN" | jq
 
 # 3. Listar discrepancias (primeras 10)
-curl -s -X GET "http://172.17.11.18:8000/api/nomina/discrepancias/?cierre=35&limit=10" \
+curl -s -X GET "http://172.17.11.13:8000/api/nomina/discrepancias/?cierre=35&limit=10" \
   -H "Authorization: Bearer $TOKEN" | jq
 
 # 4. Filtrar por tipo específico (ejemplo: diff_sueldo_base)
-curl -s -X GET "http://172.17.11.18:8000/api/nomina/discrepancias/?cierre=35&tipo=diff_sueldo_base" \
+curl -s -X GET "http://172.17.11.13:8000/api/nomina/discrepancias/?cierre=35&tipo=diff_sueldo_base" \
   -H "Authorization: Bearer $TOKEN" | jq
 ```
 

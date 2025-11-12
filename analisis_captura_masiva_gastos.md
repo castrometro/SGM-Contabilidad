@@ -161,7 +161,7 @@ useEffect(() => {
 ## 🌐 Integración con APIs
 
 ### API RindeGastos (Principal)
-- **Base URL**: `http://172.17.11.18:8000/api/contabilidad`
+- **Base URL**: `http://172.17.11.13:8000/api/contabilidad`
 - **Endpoints utilizados**:
   1. `POST /rindegastos/leer-headers/` - Análisis de archivo
   2. `POST /rindegastos/step1/iniciar/` - Procesamiento asíncrono
@@ -169,7 +169,7 @@ useEffect(() => {
   4. `GET /rindegastos/step1/descargar/{taskId}/` - Descarga de resultados
 
 ### API CapturaGastos (Legacy)
-- **Base URL**: `http://172.17.11.18:8000/api`
+- **Base URL**: `http://172.17.11.13:8000/api`
 - **Estado**: Importada pero no utilizada actualmente
 - **Propósito**: Mantiene compatibilidad con flujos anteriores
 

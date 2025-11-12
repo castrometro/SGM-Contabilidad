@@ -91,7 +91,7 @@ export const generarIncidenciasCierre = async (cierreId, clasificacionesSeleccio
 
 **Comando ejecutado**:
 ```bash
-curl -X POST "http://172.17.11.18:8000/api/nomina/incidencias-v2/35/generar/" \
+curl -X POST "http://172.17.11.13:8000/api/nomina/incidencias-v2/35/generar/" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json"
 ```

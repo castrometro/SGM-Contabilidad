@@ -176,7 +176,7 @@ TOKEN="tu_token_jwt"
 
 # Consultar actividad del cierre 30
 curl -H "Authorization: Bearer $TOKEN" \
-  http://172.17.11.18:8000/api/nomina/activity-log/cierre/30/
+  http://172.17.11.13:8000/api/nomina/activity-log/cierre/30/
 ```
 
 ## 📊 Estado del Sistema

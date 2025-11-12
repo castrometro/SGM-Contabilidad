@@ -1,6 +1,6 @@
 // src/api/capturaGastos.js
 
-const API_BASE_URL = 'http://172.17.11.18:8000/api';
+const API_BASE_URL = 'http://172.17.11.13:8000/api';
 
 export const subirArchivoGastos = async (archivo, mapeoCC = {}) => {
   const formData = new FormData();

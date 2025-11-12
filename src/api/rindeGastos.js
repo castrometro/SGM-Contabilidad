@@ -1,6 +1,6 @@
 // src/api/rindeGastos.js
 
-const API_BASE_URL = 'http://172.17.11.18:8000/api/contabilidad';
+const API_BASE_URL = 'http://172.17.11.13:8000/api/contabilidad';
 
 export const rgLeerHeadersExcel = async (archivo) => {
   const formData = new FormData();

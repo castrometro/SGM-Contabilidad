@@ -101,8 +101,30 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5174",  # si estás en local
     "http://172.17.11.13:5174",  # IP del servidor Vite
     "http://172.17.11.13:8000",  # IP del servidor Django
-    "http://172.17.11.18:5174",  # IP anterior (mantener por compatibilidad)
-    "http://172.17.11.18:8000",
+    "http://172.17.11.13:5174",  # IP anterior (mantener por compatibilidad)
+    "http://172.17.11.13:8000",
+]
+
+# Configuración adicional de CORS para manejar peticiones preflight
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
 ]
 
 # URL handling

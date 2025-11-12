@@ -4,7 +4,7 @@ import { crearResolucionIncidencia, obtenerHistorialIncidencia, aprobarIncidenci
 import { ESTADOS_INCIDENCIA } from "../../../utils/incidenciaUtils";
 
 // Base de media: si la API está en 8000 y Vite en 5174, necesitamos apuntar al host backend
-const MEDIA_BASE = import.meta?.env?.VITE_MEDIA_BASE_URL || 'http://172.17.11.18:8000';
+const MEDIA_BASE = import.meta?.env?.VITE_MEDIA_BASE_URL || 'http://172.17.11.13:8000';
 
 const construirURLAdjunto = (urlRelativa) => {
   if (!urlRelativa) return null;

@@ -171,7 +171,7 @@ write_report ""
 write_report "🔗 ENLACES ÚTILES:"
 write_report "-----------------"
 write_report "• SGM Frontend: http://172.17.11.18:5174/"
-write_report "• Django Admin: http://172.17.11.18:8000/admin/"
+write_report "• Django Admin: http://172.17.11.13:8000/admin/"
 write_report "• Flower Monitor: http://172.17.11.18:5555/"
 write_report "• Streamlit Conta: http://172.17.11.18:8502/"
 

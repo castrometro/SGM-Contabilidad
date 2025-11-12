@@ -3,7 +3,7 @@
 ## 📋 Pre-requisitos
 
 ✅ Sistema ejecutándose:
-- Backend Django: `http://172.17.11.18:8000`
+- Backend Django: `http://172.17.11.13:8000`
 - Frontend React: `http://172.17.11.18:5174`
 - Celery workers activos (nomina_queue)
 

@@ -423,11 +423,11 @@ generar_reporte_cierre(30)
 ```bash
 # Obtener actividad del cierre 30
 curl -H "Authorization: Bearer YOUR_TOKEN" \
-  "http://172.17.11.18:8000/api/nomina/activity-log/cierre/30/" | jq
+  "http://172.17.11.13:8000/api/nomina/activity-log/cierre/30/" | jq
 
 # Con filtros adicionales
 curl -H "Authorization: Bearer YOUR_TOKEN" \
-  "http://172.17.11.18:8000/api/nomina/activity-log/?resource_type=cierre&resource_id=30&days=1" | jq
+  "http://172.17.11.13:8000/api/nomina/activity-log/?resource_type=cierre&resource_id=30&days=1" | jq
 ```
 
 ---
