@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { obtenerCliente, obtenerServiciosCliente } from "../api/clientes";
-import { BadgeCheck, Loader2, ReceiptText, ShieldOff, Wrench } from "lucide-react";
+import {
+  BadgeCheck,
+  Building2,
+  Info,
+  Loader2,
+  ReceiptText,
+  ShieldOff,
+  Wrench
+} from "lucide-react";
 
 const RindeGastosCard = ({ servicio, onIrAGastos }) => {
   const esActivo = servicio.activo !== false;
@@ -21,11 +29,6 @@ const RindeGastosCard = ({ servicio, onIrAGastos }) => {
             </p>
             {servicio.area && (
               <p className="text-xs text-gray-400 mt-1">Área: {servicio.area}</p>
-            )}
-            {servicio.valor && (
-              <p className="text-xs text-gray-400 mt-1">
-                Valor: {servicio.moneda ? `${servicio.moneda} ` : ""}{servicio.valor}
-              </p>
             )}
           </div>
         </div>
@@ -67,11 +70,6 @@ const ServicioCard = ({ servicio, onIrAGastos }) => {
       <h3 className="text-lg font-semibold text-white">{servicio.nombre}</h3>
       <p className="text-gray-300 text-sm mt-2">{servicio.descripcion || "Servicio contratado"}</p>
       {servicio.area && <p className="text-xs text-gray-400 mt-2">Área: {servicio.area}</p>}
-      {servicio.valor && (
-        <p className="text-xs text-gray-400 mt-1">
-          Valor: {servicio.moneda ? `${servicio.moneda} ` : ""}{servicio.valor}
-        </p>
-      )}
     </div>
   );
 };
@@ -128,6 +126,10 @@ const ClienteDetalle = () => {
     return [...(servicios ?? [])].sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
   }, [servicios]);
 
+  const totalServicios = serviciosOrdenados.length;
+  const serviciosActivos = serviciosOrdenados.filter((servicio) => servicio.activo !== false).length;
+  const serviciosInactivos = totalServicios - serviciosActivos;
+
   if (cargando) {
     return (
       <div className="flex items-center justify-center h-64 text-white gap-3">
@@ -146,18 +148,64 @@ const ClienteDetalle = () => {
 
   return (
     <div className="text-white space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="text-sm text-gray-400 mb-1">Detalle del cliente</p>
-          <h1 className="text-3xl font-bold">{cliente.nombre}</h1>
-          <p className="text-gray-300 text-sm">RUT: {cliente.rut}</p>
+      <div className="bg-gradient-to-br from-gray-800 via-gray-800 to-gray-900 rounded-xl shadow-xl border border-gray-700/70 overflow-hidden">
+        <div className="bg-gradient-to-r from-emerald-600/15 via-blue-600/10 to-indigo-600/15 p-6 border-b border-gray-700/60">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="p-3 rounded-xl bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                <Building2 className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">Detalle del cliente</p>
+                <h1 className="text-3xl font-bold leading-tight">{cliente.nombre}</h1>
+                <div className="flex flex-wrap items-center gap-2 text-sm text-gray-300 mt-2">
+                  <span className="px-3 py-1 rounded-full bg-gray-900/50 border border-gray-700/70">RUT: {cliente.rut}</span>
+                  <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-200 border border-emerald-500/30">
+                    Cliente ID #{cliente.id || clienteId}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <Link
+              to="/menu/clientes"
+              className="px-4 py-2 rounded-lg bg-gray-900/70 border border-gray-700 hover:border-gray-500 text-sm font-semibold h-fit"
+            >
+              ← Volver a clientes
+            </Link>
+          </div>
         </div>
-        <Link
-          to="/menu/clientes"
-          className="px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 hover:bg-gray-700 text-sm font-semibold"
-        >
-          ← Volver a clientes
-        </Link>
+
+        <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-gray-800/60 rounded-lg p-4 border border-gray-700/70 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
+              <BadgeCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-gray-400">Servicios activos</p>
+              <p className="text-2xl font-bold text-white tabular-nums">{serviciosActivos}</p>
+            </div>
+          </div>
+
+          <div className="bg-gray-800/60 rounded-lg p-4 border border-gray-700/70 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-300 border border-blue-500/30">
+              <Info className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-gray-400">Servicios totales</p>
+              <p className="text-2xl font-bold text-white tabular-nums">{totalServicios}</p>
+            </div>
+          </div>
+
+          <div className="bg-gray-800/60 rounded-lg p-4 border border-gray-700/70 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-red-500/10 text-red-300 border border-red-500/30">
+              <ShieldOff className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-gray-400">Servicios inactivos</p>
+              <p className="text-2xl font-bold text-white tabular-nums">{Math.max(serviciosInactivos, 0)}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="space-y-4">
