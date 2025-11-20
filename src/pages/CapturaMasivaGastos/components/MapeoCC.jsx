@@ -15,8 +15,6 @@ const MapeoCC = ({
   const { alerts } = STYLES_CONFIG;
   const { ccInfo } = UI_MESSAGES;
 
-  console.log('🗺️ MapeoCC renderizado:', { mostrarMapeoCC, headersExcel, centrosCostoDetectados, mapeoCC });
-
   if (!mostrarMapeoCC || !headersExcel) return null;
 
   const handleInputChange = (key, value) => {
@@ -27,7 +25,6 @@ const MapeoCC = ({
 
   // Generar configuración de columnas dinámicamente basada en centros de costo detectados
   const generarColumnasDetectadas = () => {
-    console.log('🔍 Generando columnas detectadas (dinámico RG):', centrosCostoDetectados);
     const columnas = [];
 
     // Si tenemos detección RG, iterar todas las claves detectadas (nombres tal cual en header)
@@ -42,12 +39,10 @@ const MapeoCC = ({
           placeholder: 'Solo números y guiones (ej: 01-003)'
         });
       });
-      console.log('✅ Columnas RG generadas:', columnas);
       return columnas;
     }
 
     // Fallback: configuración por defecto (PyC, PS/EB, ...)
-    console.log('⚠️ No se detectaron centros de costo (RG), usando configuración por defecto');
     return config.columns.map(col => ({
       ...col,
       subtitle: 'Sin nombre'
@@ -57,7 +52,7 @@ const MapeoCC = ({
   const columnasAMostrar = generarColumnasDetectadas();
 
   return (
-    <div className={`mt-6 ${alerts.warning}`}>
+    <div className={alerts.warning}>
       <div className="flex items-center gap-2 mb-4">
         <Settings className="w-5 h-5 text-yellow-400" />
         <h3 className="font-semibold text-yellow-400">{config.title}</h3>

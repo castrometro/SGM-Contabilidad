@@ -28,7 +28,7 @@ const Tools = () => {
       <div className="flex items-center justify-between">
         <div className="flex-1">
           <h1 className="text-3xl font-bold mb-2">Herramientas</h1>
-          <p className="text-gray-400">RindeGastos es el módulo activo para captura y contabilización de gastos.</p>
+          <p className="text-gray-400">Las herramientas ahora se acceden desde el detalle del cliente.</p>
         </div>
         {usuario?.areas && Array.isArray(usuario.areas) && usuario.areas.length > 0 && (
           <AreaIndicator areas={usuario.areas} size="sm" />
@@ -38,17 +38,16 @@ const Tools = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <ToolCard
           title="Captura Masiva de Gastos"
-          description="Procesar y clasificar gastos desde Excel vía RindeGastos"
+          description="Ingresa al cliente y abre RindeGastos desde su ficha"
           icon={Receipt}
-          onClick={() => navigate("/menu/tools/captura-masiva-gastos")}
+          onClick={() => navigate("/menu/clientes")}
         />
       </div>
 
       <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-6">
-        <h3 className="font-semibold text-blue-400 mb-2">Acceso restringido por servicio</h3>
+        <h3 className="font-semibold text-blue-400 mb-2">Acceso desde Cliente</h3>
         <p className="text-gray-300 text-sm">
-          Solo los clientes con el servicio RindeGastos activo pueden ejecutar este módulo. Si no ves datos o recibes un error
-          de permiso, valida que el servicio esté contratado para tu cliente.
+          Abre el detalle del cliente para lanzar RindeGastos con el contexto correcto y validar si el servicio está activo.
         </p>
       </div>
     </div>
