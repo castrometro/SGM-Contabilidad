@@ -69,7 +69,6 @@ INSTALLED_APPS = [
     'rest_framework',
     'api',
     'contabilidad',
-    'nomina',
     'corsheaders',
 ]
 
@@ -93,8 +92,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # Activity Logging V2 - Captura automática de eventos
-    'nomina.middleware.activity_middleware.ActivityCaptureMiddleware',
 ]
 
 CORS_ALLOWED_ORIGINS = [

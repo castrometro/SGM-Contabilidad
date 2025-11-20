@@ -7,6 +7,7 @@ from io import BytesIO
 import unicodedata
 from django.http import HttpResponse
 import json
+from api.models import AsignacionClienteUsuario, ServicioCliente
 from contabilidad.tasks import (
     get_headers_salida_contabilidad,
     get_redis_client_db1,
@@ -14,6 +15,31 @@ from contabilidad.tasks import (
 )
 ## Endpoint sincrónico eliminado: se fuerza uso de Celery
 from contabilidad.task_rindegastos import rg_procesar_step1_task
+
+
+def _extract_cliente_id(request):
+    return (
+        request.data.get("cliente_id")
+        if hasattr(request, "data")
+        else None
+    ) or request.query_params.get("cliente_id")
+
+
+def _user_has_rindegastos(user, cliente_id=None):
+    """Valida que el usuario tenga algún cliente con el servicio RindeGastos."""
+    base_qs = ServicioCliente.objects.filter(servicio__nombre__iexact="RindeGastos")
+
+    if cliente_id:
+        base_qs = base_qs.filter(cliente_id=cliente_id)
+
+    assigned_clientes = AsignacionClienteUsuario.objects.filter(usuario=user).values_list("cliente_id", flat=True)
+
+    if assigned_clientes.exists():
+        base_qs = base_qs.filter(cliente_id__in=assigned_clientes)
+    elif not user.is_staff and not user.is_superuser:
+        return False
+
+    return base_qs.exists()
 
 
 def _normalize(text):
@@ -33,6 +59,10 @@ def leer_headers_excel_rindegastos(request):
     como el rango entre la última columna 'Nombre cuenta' y la columna 'Fecha aprobacion'.
     """
     try:
+        cliente_id = _extract_cliente_id(request)
+        if not _user_has_rindegastos(request.user, cliente_id):
+            return Response({'error': 'El servicio RindeGastos no está habilitado para este usuario/cliente'}, status=403)
+
         if 'archivo' not in request.FILES:
             return Response({'error': 'No se encontró archivo en la petición'}, status=400)
 
@@ -135,6 +165,10 @@ def _sanitize_sheet_name(name: str) -> str:
 def procesar_step1_rindegastos(request):
     """Inicia Step1 (asíncrono) exigiendo parametros_contables (JSON o campos sueltos)."""
     try:
+        cliente_id = _extract_cliente_id(request)
+        if not _user_has_rindegastos(request.user, cliente_id):
+            return Response({'error': 'El servicio RindeGastos no está habilitado para este usuario/cliente'}, status=403)
+
         if 'archivo' not in request.FILES:
             return Response({'error': 'No se encontró archivo en la petición'}, status=400)
         archivo = request.FILES['archivo']
@@ -194,6 +228,10 @@ def procesar_step1_rindegastos(request):
 @permission_classes([IsAuthenticated])
 def estado_step1_rindegastos(request, task_id):
     try:
+        cliente_id = _extract_cliente_id(request)
+        if not _user_has_rindegastos(request.user, cliente_id):
+            return Response({'error': 'El servicio RindeGastos no está habilitado para este usuario/cliente'}, status=403)
+
         r = get_redis_client_db1()
         meta_raw = r.get(f"rg_step1_meta:{request.user.id}:{task_id}")
         if not meta_raw:
@@ -207,6 +245,10 @@ def estado_step1_rindegastos(request, task_id):
 @permission_classes([IsAuthenticated])
 def descargar_step1_rindegastos(request, task_id):
     try:
+        cliente_id = _extract_cliente_id(request)
+        if not _user_has_rindegastos(request.user, cliente_id):
+            return Response({'error': 'El servicio RindeGastos no está habilitado para este usuario/cliente'}, status=403)
+
         r = get_redis_client_db1()
         meta_raw = r.get(f"rg_step1_meta:{request.user.id}:{task_id}")
         if not meta_raw:
