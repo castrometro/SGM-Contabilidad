@@ -12,6 +12,27 @@ import ErrorSection from "./components/ErrorSection";
 import { STYLES_CONFIG, CAPTURA_CONFIG } from "./config/capturaConfig";
 import { obtenerCliente } from "../../api/clientes";
 
+const StepCard = ({ number, title, subtitle, locked = false, children }) => {
+  const { containers } = STYLES_CONFIG;
+
+  return (
+    <div className={containers.section}>
+      <div className="flex items-start gap-3 mb-4">
+        <div className={`w-10 h-10 rounded-full border border-emerald-500/60 bg-emerald-600/15 flex items-center justify-center text-lg font-semibold text-emerald-200 ${locked ? "opacity-60" : ""}`}>
+          {number}
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-emerald-200/70">Paso {number}</p>
+          <h2 className="text-xl font-semibold text-white">{title}</h2>
+          {subtitle && <p className="text-sm text-gray-400">{subtitle}</p>}
+        </div>
+      </div>
+
+      <div className={locked ? "opacity-60 pointer-events-none" : ""}>{children}</div>
+    </div>
+  );
+};
+
 /**
  * Página principal de captura masiva de gastos
  * Refactorizada usando el patrón de feature folders
@@ -42,7 +63,7 @@ const CapturaMasivaGastos = () => {
     setMapeoCC
   } = useCapturaGastos();
 
-  const { containers } = STYLES_CONFIG;
+  const { containers, buttons, alerts } = STYLES_CONFIG;
   const { steps } = CAPTURA_CONFIG;
 
   useEffect(() => {
@@ -86,14 +107,20 @@ const CapturaMasivaGastos = () => {
         estado: archivo ? "completo" : "pendiente"
       },
       {
-        titulo: "Configuración de centros de costos",
-        detalle: mostrarMapeoCC ? "Mapeo listo para editar" : "A la espera del archivo",
-        estado: mostrarMapeoCC ? "en_progreso" : "pendiente"
+        titulo: "Paso 3: Configurar centros de costo y cuentas",
+        detalle: archivo ? (mostrarMapeoCC ? "Mapeo listo para editar" : "Leyendo cabeceras") : "Sube un archivo para habilitar",
+        estado: archivo ? (mostrarMapeoCC ? "en_progreso" : "pendiente") : "pendiente"
       },
       {
-        titulo: "Procesamiento",
-        detalle: procesando ? "Procesando con Celery..." : resultados ? "Completado" : "Listo para procesar",
-        estado: procesando ? "en_progreso" : resultados ? "completo" : "pendiente"
+        titulo: "Paso 4: Procesar (Step 1 RG)",
+        detalle: procesando
+          ? "Procesando con Celery..."
+          : resultados
+            ? "Completado"
+            : archivo
+              ? "Listo para enviar"
+              : "Sube archivo primero",
+        estado: procesando ? "en_progreso" : resultados ? "completo" : archivo ? "listo" : "pendiente"
       },
       {
         titulo: steps.results.title,
@@ -110,38 +137,109 @@ const CapturaMasivaGastos = () => {
       <PageHeader cliente={cliente} clienteId={clienteId} loadingCliente={cargandoCliente} />
 
       <div className={`${containers.content} space-y-6`}>
-        <div className="grid lg:grid-cols-3 gap-6 items-start">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="grid md:grid-cols-2 gap-4">
-              <InstructionsSection />
-              <DownloadTemplateSection onDownload={descargarPlantilla} />
-            </div>
+        <div className="grid lg:grid-cols-4 gap-6 items-start">
+          <div className="lg:col-span-3 space-y-6">
+            <StepCard
+              number={1}
+              title="Descargar plantilla"
+              subtitle="Obtén el formato correcto antes de cargar tus gastos"
+            >
+              <DownloadTemplateSection onDownload={descargarPlantilla} showTitle={false} useContainer={false} />
+            </StepCard>
 
-            <FileUploadSection
-              archivo={archivo}
-              procesando={procesando}
-              onArchivoSeleccionado={handleArchivoSeleccionado}
-              onLimpiarArchivo={limpiarArchivo}
-              onProcesar={procesarArchivo}
-            />
-
-            <MapeoCC
-              mostrarMapeoCC={mostrarMapeoCC}
-              headersExcel={headersExcel}
-              centrosCostoDetectados={centrosCostoDetectados}
-              mapeoCC={mapeoCC}
-              setMapeoCC={setMapeoCC}
-            />
-
-            {mostrarMapeoCC && (
-              <CuentasGlobalesSection
-                cuentasGlobales={cuentasGlobales}
-                setCuentasGlobales={setCuentasGlobales}
+            <StepCard
+              number={2}
+              title="Subir archivo completado"
+              subtitle="Carga el Excel que llenaste con la plantilla"
+            >
+              <FileUploadSection
+                archivo={archivo}
+                procesando={procesando}
+                onArchivoSeleccionado={handleArchivoSeleccionado}
+                onLimpiarArchivo={limpiarArchivo}
+                onProcesar={procesarArchivo}
+                showProcesar={false}
+                showTitle={false}
+                useContainer={false}
               />
-            )}
+            </StepCard>
+
+            <StepCard
+              number={3}
+              title="Configurar centros de costo y cuentas"
+              subtitle="Revisa las imputaciones detectadas y completa las cuentas obligatorias"
+              locked={!archivo}
+            >
+              {!archivo && (
+                <div className={alerts.info}>
+                  <p className="text-sm text-blue-200">Sube un archivo para habilitar la configuración.</p>
+                </div>
+              )}
+
+              {archivo && (
+                <div className="space-y-4">
+                  <MapeoCC
+                    mostrarMapeoCC={mostrarMapeoCC}
+                    headersExcel={headersExcel}
+                    centrosCostoDetectados={centrosCostoDetectados}
+                    mapeoCC={mapeoCC}
+                    setMapeoCC={setMapeoCC}
+                  />
+
+                  {mostrarMapeoCC && (
+                    <CuentasGlobalesSection
+                      cuentasGlobales={cuentasGlobales}
+                      setCuentasGlobales={setCuentasGlobales}
+                    />
+                  )}
+
+                  {!mostrarMapeoCC && (
+                    <div className={alerts.info}>
+                      <p className="text-sm text-blue-200">Leyendo cabeceras del archivo para mostrar mapeos...</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </StepCard>
+
+            <StepCard
+              number={4}
+              title="Procesar (Step 1 RG)"
+              subtitle="Ejecuta el procesamiento con la configuración anterior"
+              locked={!archivo}
+            >
+              <div className="space-y-3">
+                <p className="text-sm text-gray-300">
+                  Valida que los centros de costo y las cuentas globales estén completos antes de iniciar.
+                </p>
+                <button
+                  onClick={procesarArchivo}
+                  disabled={!archivo || procesando}
+                  className={`w-full ${buttons.secondary} ${(!archivo || procesando) ? buttons.disabled : ""}`}
+                >
+                  {procesando ? "Procesando con Celery..." : "Procesar (Step 1 RG)"}
+                </button>
+              </div>
+            </StepCard>
+
+            <StepCard
+              number={5}
+              title="Descargar archivo procesado"
+              subtitle="Obtén el Excel con el resultado del Step 1"
+            >
+              <ResultsSection
+                resultados={resultados}
+                onDescargar={descargarArchivo}
+                showPlaceholder
+                showTitle={false}
+                useContainer={false}
+              />
+            </StepCard>
           </div>
 
           <div className="space-y-4">
+            <InstructionsSection />
+
             <div className={containers.section}>
               <h3 className="text-lg font-semibold mb-4">Flujo del proceso</h3>
               <div className="space-y-3">
@@ -170,11 +268,6 @@ const CapturaMasivaGastos = () => {
             </div>
 
             <ErrorSection error={error} />
-
-            <ResultsSection
-              resultados={resultados}
-              onDescargar={descargarArchivo}
-            />
           </div>
         </div>
       </div>
