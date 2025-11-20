@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { obtenerClientesAsignados, obtenerTodosLosClientes, obtenerClientesPorArea } from '../api/clientes';
+import { obtenerClientesAsignados, obtenerClientesPorArea } from '../api/clientes';
 import { obtenerUsuario } from '../api/auth';
-import ClienteRow from '../components/ClienteRow';
+import ClienteListCard from '../components/ClienteListCard';
+import ClienteListRow from '../components/ClienteListRow';
 
 const Clientes = () => {
   const [clientes, setClientes] = useState([]);
@@ -180,12 +181,11 @@ ${clientes.length > 5 ? `... y ${clientes.length - 5} más` : ''}
           <>
             {/* Vista Cards - Móvil/Tablet */}
             <div className="lg:hidden space-y-3">
-              {clientesFiltrados.map((cliente, idx) => (
-                <ClienteRow
+              {clientesFiltrados.map((cliente) => (
+                <ClienteListCard
                   key={cliente.id}
                   cliente={cliente}
                   areaActiva={areaActiva}
-                  index={idx}
                 />
               ))}
             </div>
@@ -195,21 +195,17 @@ ${clientes.length > 5 ? `... y ${clientes.length - 5} más` : ''}
               <table className="w-full text-left">
                 <thead>
                   <tr className="border-b border-gray-700">
-                    <th className="p-2">Cliente</th>
-                    <th className="p-2">RUT</th>
-                    <th className="p-2 text-center">Último Cierre</th>
-                    <th className="p-2 text-center">Estado Actual</th>
-                    <th className="p-2 text-center">Usuario Responsable</th>
-                    <th className="p-2 text-center">Acciones</th>
+                    <th className="p-3">Cliente</th>
+                    <th className="p-3">RUT</th>
+                    <th className="p-3 text-center">Estado</th>
+                    <th className="p-3 text-center">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {clientesFiltrados.map((cliente, idx) => (
-                    <ClienteRow
+                  {clientesFiltrados.map((cliente) => (
+                    <ClienteListRow
                       key={cliente.id}
                       cliente={cliente}
-                      areaActiva={areaActiva}
-                      index={idx}
                     />
                   ))}
                 </tbody>

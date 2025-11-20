@@ -1,8 +1,15 @@
 import OpcionMenu from "../components/OpcionMenu";
-import { Wrench } from "lucide-react";
+import { Users, Wrench } from "lucide-react";
 
 const MenuUsuario = () => {
   const opciones = [
+    {
+      label: "Clientes",
+      descripcion: "Lista de clientes asignados",
+      icon: Users,
+      color: "#3B82F6",
+      path: "/menu/clientes"
+    },
     {
       label: "RindeGastos",
       descripcion: "Captura y procesamiento de gastos",
