@@ -329,7 +329,6 @@ class AnalistaPerformanceViewSet(viewsets.ReadOnlyModelViewSet):
                     filter=Q(cierrecontabilidad__area__in=areas),
                     distinct=True,
                 ),
-                cierres_nomina=Count('cierres_analista', distinct=True),
             )
         )
 
@@ -373,10 +372,6 @@ class DashboardViewSet(viewsets.ReadOnlyModelViewSet):
             # Fallback para otros tipos de usuarios
             areas = user.areas.all()
         
-        # Verificar qué áreas maneja el usuario para adaptar los KPIs
-        tiene_contabilidad = areas.filter(nombre='Contabilidad').exists()
-        tiene_nomina = areas.filter(nombre='Nomina').exists()
-        
         # KPIs adaptados según el tipo de usuario
         if user.tipo_usuario == 'gerente':
             total_analistas = Usuario.objects.filter(
@@ -404,60 +399,33 @@ class DashboardViewSet(viewsets.ReadOnlyModelViewSet):
         
         # Importar modelos de cierres
         from contabilidad.models import CierreContabilidad
-        from nomina.models import CierreNomina
-        
+
         # Cierres por área específica - adaptado según tipo de usuario
-        cierres_contabilidad = 0
-        cierres_nomina = 0
-        
-        if tiene_contabilidad:
-            if user.tipo_usuario == 'gerente':
-                cierres_contabilidad = CierreContabilidad.objects.filter(
-                    area__in=areas.filter(nombre='Contabilidad'),
-                    fecha_creacion__range=[start_date, end_date],
-                    estado__in=['aprobado', 'completo']
-                ).count()
-            elif user.tipo_usuario == 'supervisor':
-                # Supervisores ven cierres de sus analistas supervisados
-                analistas_supervisados = user.get_analistas_supervisados()
-                cierres_contabilidad = CierreContabilidad.objects.filter(
-                    area__in=areas.filter(nombre='Contabilidad'),
-                    usuario_analista__in=analistas_supervisados,
-                    fecha_creacion__range=[start_date, end_date],
-                    estado__in=['aprobado', 'completo']
-                ).count()
-            else:
-                # Analistas ven solo sus propios cierres
-                cierres_contabilidad = CierreContabilidad.objects.filter(
-                    area__in=areas.filter(nombre='Contabilidad'),
-                    usuario_analista=user,
-                    fecha_creacion__range=[start_date, end_date],
-                    estado__in=['aprobado', 'completo']
-                ).count()
-        
-        if tiene_nomina:
-            if user.tipo_usuario == 'gerente':
-                cierres_nomina = CierreNomina.objects.filter(
-                    fecha_creacion__range=[start_date, end_date],
-                    estado='completado'
-                ).count()
-            elif user.tipo_usuario == 'supervisor':
-                # Supervisores ven cierres de sus analistas supervisados
-                analistas_supervisados = user.get_analistas_supervisados()
-                cierres_nomina = CierreNomina.objects.filter(
-                    usuario_analista__in=analistas_supervisados,
-                    fecha_creacion__range=[start_date, end_date],
-                    estado='completado'
-                ).count()
-            else:
-                # Analistas ven solo sus propios cierres
-                cierres_nomina = CierreNomina.objects.filter(
-                    usuario_analista=user,
-                    fecha_creacion__range=[start_date, end_date],
-                    estado='completado'
-                ).count()
-        
-        total_cierres = cierres_contabilidad + cierres_nomina
+        if user.tipo_usuario == 'gerente':
+            cierres_contabilidad = CierreContabilidad.objects.filter(
+                area__in=areas.filter(nombre='Contabilidad'),
+                fecha_creacion__range=[start_date, end_date],
+                estado__in=['aprobado', 'completo']
+            ).count()
+        elif user.tipo_usuario == 'supervisor':
+            # Supervisores ven cierres de sus analistas supervisados
+            analistas_supervisados = user.get_analistas_supervisados()
+            cierres_contabilidad = CierreContabilidad.objects.filter(
+                area__in=areas.filter(nombre='Contabilidad'),
+                usuario_analista__in=analistas_supervisados,
+                fecha_creacion__range=[start_date, end_date],
+                estado__in=['aprobado', 'completo']
+            ).count()
+        else:
+            # Analistas ven solo sus propios cierres
+            cierres_contabilidad = CierreContabilidad.objects.filter(
+                area__in=areas.filter(nombre='Contabilidad'),
+                usuario_analista=user,
+                fecha_creacion__range=[start_date, end_date],
+                estado__in=['aprobado', 'completo']
+            ).count()
+
+        total_cierres = cierres_contabilidad
         
         # Performance de analistas - adaptado según tipo de usuario
         if user.tipo_usuario == 'gerente':
@@ -476,18 +444,14 @@ class DashboardViewSet(viewsets.ReadOnlyModelViewSet):
         # Aplicar anotaciones comunes
         analistas_queryset = analistas_queryset.annotate(
             clientes_asignados=Count('asignaciones', distinct=True),
-            cierres_completados=Count('cierrecontabilidad', 
+            cierres_completados=Count('cierrecontabilidad',
                 filter=Q(cierrecontabilidad__estado__in=['aprobado', 'completo']),
-                distinct=True
-            ) + Count('cierres_analista',
-                filter=Q(cierres_analista__estado='completado'),
                 distinct=True
             ),
             cierres_contabilidad=Count('cierrecontabilidad',
                 filter=Q(cierrecontabilidad__area__in=areas),
                 distinct=True
-            ),
-            cierres_nomina=Count('cierres_analista', distinct=True)
+            )
         ).annotate(
             eficiencia=F('cierres_completados') * 100.0 / (F('clientes_asignados') + 1),
             carga_trabajo=F('clientes_asignados') * 10.0  # Simplificado
@@ -504,7 +468,6 @@ class DashboardViewSet(viewsets.ReadOnlyModelViewSet):
                 'clientes_asignados': analista.clientes_asignados,
                 'cierres_completados': analista.cierres_completados,
                 'cierres_contabilidad': analista.cierres_contabilidad,
-                'cierres_nomina': analista.cierres_nomina,
                 'eficiencia': round(float(analista.eficiencia or 0), 1),
                 'carga_trabajo': round(float(analista.carga_trabajo or 0), 1),
                 'areas': [{'id': area.id, 'nombre': area.nombre} for area in analista.areas.all()]
@@ -512,23 +475,14 @@ class DashboardViewSet(viewsets.ReadOnlyModelViewSet):
         
         # Estados de cierres específicos por área
         cierres_por_estado = {}
-        
-        if tiene_contabilidad:
-            estados_contabilidad = CierreContabilidad.objects.filter(
-                area__in=areas.filter(nombre='Contabilidad'),
-                fecha_creacion__range=[start_date, end_date]
-            ).values('estado').annotate(count=Count('id'))
-            
-            for item in estados_contabilidad:
-                cierres_por_estado[f"{item['estado']}_contabilidad"] = item['count']
-        
-        if tiene_nomina:
-            estados_nomina = CierreNomina.objects.filter(
-                fecha_creacion__range=[start_date, end_date]
-            ).values('estado').annotate(count=Count('id'))
-            
-            for item in estados_nomina:
-                cierres_por_estado[f"{item['estado']}_nomina"] = item['count']
+
+        estados_contabilidad = CierreContabilidad.objects.filter(
+            area__in=areas.filter(nombre='Contabilidad'),
+            fecha_creacion__range=[start_date, end_date]
+        ).values('estado').annotate(count=Count('id'))
+
+        for item in estados_contabilidad:
+            cierres_por_estado[f"{item['estado']}_contabilidad"] = item['count']
         
         # Clientes por industria
         clientes_por_industria_raw = Cliente.objects.filter(
@@ -567,11 +521,9 @@ class DashboardViewSet(viewsets.ReadOnlyModelViewSet):
             days_back = 30 * i
             month_end = now - timedelta(days=days_back)
             month_start = now - timedelta(days=days_back + 30)
-            
+
             month_cierres = CierreContabilidad.objects.filter(
                 area__in=areas,
-                fecha_creacion__range=[month_start, month_end]
-            ).count() + CierreNomina.objects.filter(
                 fecha_creacion__range=[month_start, month_end]
             ).count()
             
@@ -581,23 +533,14 @@ class DashboardViewSet(viewsets.ReadOnlyModelViewSet):
             })
         
         tendencia_cierres.reverse()
-        
+
         # Alertas de cierres retrasados específicos por área
         fecha_limite = now - timedelta(days=30)
-        cierres_retrasados = 0
-        
-        if tiene_contabilidad:
-            cierres_retrasados += CierreContabilidad.objects.filter(
-                area__in=areas.filter(nombre='Contabilidad'),
-                fecha_creacion__lt=fecha_limite,
-                estado__in=['pendiente', 'procesando', 'clasificacion']
-            ).count()
-        
-        if tiene_nomina:
-            cierres_retrasados += CierreNomina.objects.filter(
-                fecha_creacion__lt=fecha_limite,
-                estado__in=['pendiente', 'en_proceso', 'datos_consolidados']
-            ).count()
+        cierres_retrasados = CierreContabilidad.objects.filter(
+            area__in=areas.filter(nombre='Contabilidad'),
+            fecha_creacion__lt=fecha_limite,
+            estado__in=['pendiente', 'procesando', 'clasificacion']
+        ).count()
         
         # Calcular eficiencia promedio solo de analistas con clientes asignados
         analistas_con_datos = [a for a in analistas_performance if a['clientes_asignados'] > 0]
@@ -614,16 +557,13 @@ class DashboardViewSet(viewsets.ReadOnlyModelViewSet):
                 'areas': [{'id': area.id, 'nombre': area.nombre} for area in areas]
             },
             'areas_usuario': {
-                'tiene_contabilidad': tiene_contabilidad,
-                'tiene_nomina': tiene_nomina,
                 'areas': [{'id': area.id, 'nombre': area.nombre} for area in areas]
             },
             'kpis': {
                 'total_analistas': total_analistas,
                 'clientes_activos': clientes_activos,
                 'cierres_completados': total_cierres,
-                'cierres_contabilidad': cierres_contabilidad if tiene_contabilidad else None,
-                'cierres_nomina': cierres_nomina if tiene_nomina else None,
+                'cierres_contabilidad': cierres_contabilidad,
                 'eficiencia_promedio': round(eficiencia_promedio, 1)
             },
             'analistas_performance': analistas_performance,
@@ -649,22 +589,18 @@ class AnalistasDetalladoViewSet(viewsets.ReadOnlyModelViewSet):
         areas = gerente.areas.all()
         
         return Usuario.objects.filter(
-            tipo_usuario='analista', 
+            tipo_usuario='analista',
             areas__in=areas
         ).distinct().annotate(
             clientes_asignados=Count('asignaciones', distinct=True),
-            cierres_completados=Count('cierrecontabilidad', 
+            cierres_completados=Count('cierrecontabilidad',
                 filter=Q(cierrecontabilidad__estado__in=['aprobado', 'completo', 'finalizado']),
-                distinct=True
-            ) + Count('cierres_analista',
-                filter=Q(cierres_analista__estado='completado'),
                 distinct=True
             ),
             cierres_contabilidad=Count('cierrecontabilidad',
                 filter=Q(cierrecontabilidad__area__in=areas),
                 distinct=True
-            ),
-            cierres_nomina=Count('cierres_analista', distinct=True)
+            )
         ).annotate(
             eficiencia=F('cierres_completados') * 100.0 / (F('clientes_asignados') + 1),
             carga_trabajo=F('clientes_asignados') * 10.0
@@ -676,22 +612,15 @@ class AnalistasDetalladoViewSet(viewsets.ReadOnlyModelViewSet):
         analista = self.get_object()
         
         from contabilidad.models import CierreContabilidad
-        from nomina.models import CierreNomina
         
         # Cierres por estado
         cierres_contabilidad = CierreContabilidad.objects.filter(
             usuario=analista
         ).values('estado').annotate(count=Count('id'))
         
-        cierres_nomina = CierreNomina.objects.filter(
-            usuario_analista=analista
-        ).values('estado').annotate(count=Count('id'))
-        
         cierres_por_estado = {}
         for item in cierres_contabilidad:
             cierres_por_estado[item['estado']] = item['count']
-        for item in cierres_nomina:
-            cierres_por_estado[item['estado']] = cierres_por_estado.get(item['estado'], 0) + item['count']
         
         # Clientes asignados
         clientes = Cliente.objects.filter(asignaciones__usuario=analista)
