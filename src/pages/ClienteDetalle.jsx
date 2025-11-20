@@ -10,12 +10,19 @@ import {
   Wrench
 } from "lucide-react";
 
+const normalizarNombre = (valor = "") => valor.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+
+const isRindeGastos = (servicioNombre = "") => {
+  const nombrePlano = normalizarNombre(servicioNombre);
+  return nombrePlano.includes("rindegastos") || nombrePlano.startsWith("rinde");
+};
+
 const RindeGastosCard = () => (
   <Link
     to="/menu/tools/captura-masiva-gastos"
-    className="bg-gray-800 border border-gray-700 rounded-xl p-6 shadow-lg flex items-center gap-3 hover:border-emerald-500/60 transition"
+    className="group bg-gray-800 border border-gray-700 rounded-xl p-6 shadow-lg flex items-center gap-3 hover:border-emerald-500/60 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
   >
-    <div className="p-3 rounded-lg bg-emerald-600/20">
+    <div className="p-3 rounded-lg bg-emerald-600/20 group-hover:bg-emerald-600/25 transition-colors">
       <Wrench className="w-6 h-6 text-emerald-400" />
     </div>
     <h3 className="text-xl font-bold text-white">RindeGastos</h3>
@@ -23,17 +30,28 @@ const RindeGastosCard = () => (
 );
 
 const ServicioCard = ({ servicio }) => {
-  const nombre = servicio.nombre?.toLowerCase() || "";
-
-  if (nombre.includes("rindegastos") || nombre.includes("rinde")) {
+  if (isRindeGastos(servicio.nombre)) {
     return <RindeGastosCard />;
   }
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 shadow-lg">
-      <h3 className="text-lg font-semibold text-white">{servicio.nombre}</h3>
-      <p className="text-gray-300 text-sm mt-2">{servicio.descripcion || "Servicio contratado"}</p>
-      {servicio.area && <p className="text-xs text-gray-400 mt-2">Área: {servicio.area}</p>}
+    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 shadow-lg flex flex-col gap-2">
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="text-lg font-semibold text-white leading-tight">{servicio.nombre}</h3>
+        <span
+          className={`text-[11px] px-2 py-1 rounded-full border uppercase tracking-wide ${
+            servicio.activo !== false
+              ? "bg-emerald-500/10 text-emerald-200 border-emerald-600/40"
+              : "bg-gray-700/60 text-gray-300 border-gray-600"
+          }`}
+        >
+          {servicio.activo !== false ? "Activo" : "Inactivo"}
+        </span>
+      </div>
+      <p className="text-gray-300 text-sm leading-relaxed">
+        {servicio.descripcion || "Servicio contratado"}
+      </p>
+      {servicio.area && <p className="text-xs text-gray-400">Área: {servicio.area}</p>}
     </div>
   );
 };
@@ -86,7 +104,12 @@ const ClienteDetalle = () => {
   }, [clienteId, normalizarServicios]);
 
   const serviciosOrdenados = useMemo(() => {
-    return [...(servicios ?? [])].sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+    return [...(servicios ?? [])].sort((a, b) => {
+      const activoA = a.activo !== false ? 1 : 0;
+      const activoB = b.activo !== false ? 1 : 0;
+      if (activoA !== activoB) return activoB - activoA;
+      return (a.nombre || "").localeCompare(b.nombre || "");
+    });
   }, [servicios]);
 
   const totalServicios = serviciosOrdenados.length;
@@ -111,7 +134,7 @@ const ClienteDetalle = () => {
 
   return (
     <div className="text-white space-y-6 animate-page-fade">
-      <div className="bg-gradient-to-br from-gray-800 via-gray-800 to-gray-900 rounded-xl shadow-xl border border-gray-700/70 overflow-hidden">
+      <section className="bg-gradient-to-br from-gray-800 via-gray-800 to-gray-900 rounded-xl shadow-xl border border-gray-700/70 overflow-hidden">
         <div className="bg-gradient-to-r from-emerald-600/15 via-blue-600/10 to-indigo-600/15 p-6 border-b border-gray-700/60">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3">
@@ -169,16 +192,13 @@ const ClienteDetalle = () => {
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div className="space-y-4">
+      <section className="space-y-4">
         {serviciosOrdenados.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {serviciosOrdenados.map((servicio, index) => (
-              <ServicioCard
-                key={servicio.id ?? `${servicio.nombre}-${index}`}
-                servicio={servicio}
-              />
+              <ServicioCard key={servicio.id ?? `${servicio.nombre}-${index}`} servicio={servicio} />
             ))}
           </div>
         ) : (
@@ -190,7 +210,7 @@ const ClienteDetalle = () => {
             </div>
           </div>
         )}
-      </div>
+      </section>
 
       <style>{`
         @keyframes page-fade-in {
