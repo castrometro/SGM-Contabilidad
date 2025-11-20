@@ -160,8 +160,8 @@ const ClienteDetalle = () => {
                 <h1 className="text-3xl font-bold leading-tight">{cliente.nombre}</h1>
                 <div className="flex flex-wrap items-center gap-2 text-sm text-gray-300 mt-2">
                   <span className="px-3 py-1 rounded-full bg-gray-900/50 border border-gray-700/70">RUT: {cliente.rut}</span>
-                  <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-200 border border-emerald-500/30">
-                    Cliente ID #{cliente.id || clienteId}
+                  <span className="px-3 py-1 rounded-full bg-blue-500/10 text-blue-200 border border-blue-500/30">
+                    Industria: {cliente.industria_nombre || cliente.industria || "Sin especificar"}
                   </span>
                 </div>
               </div>
@@ -210,13 +210,15 @@ const ClienteDetalle = () => {
 
       <div className="space-y-4">
         {serviciosOrdenados.length > 0 ? (
-          serviciosOrdenados.map((servicio, index) => (
-            <ServicioCard
-              key={servicio.id ?? `${servicio.nombre}-${index}`}
-              servicio={servicio}
-              onIrAGastos={() => navigate("/menu/tools/captura-masiva-gastos")}
-            />
-          ))
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {serviciosOrdenados.map((servicio, index) => (
+              <ServicioCard
+                key={servicio.id ?? `${servicio.nombre}-${index}`}
+                servicio={servicio}
+                onIrAGastos={() => navigate("/menu/tools/captura-masiva-gastos")}
+              />
+            ))}
+          </div>
         ) : (
           <div className="bg-gray-800 border border-gray-700 rounded-lg p-5 flex items-start gap-3">
             <ShieldOff className="w-6 h-6 text-red-300 mt-1" />
