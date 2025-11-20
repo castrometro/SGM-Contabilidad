@@ -15,7 +15,6 @@ from .models import (
 from .serializers import ClienteSerializer, UsuarioSerializer
 from .permissions import IsGerente, IsAuthenticatedAndActive
 from contabilidad.models import CierreContabilidad
-from nomina.models import CierreNomina
 
 
 # ========== GESTIÓN DE CLIENTES ==========
@@ -62,13 +61,9 @@ def obtener_clientes_gerente(request):
             cliente=cliente
         ).order_by('-periodo').first()
         
-        ultimo_cierre_nomina = CierreNomina.objects.filter(
-            cliente=cliente
-        ).order_by('-periodo').first()
-        
         estado_cierres = 'al_dia'  # Por defecto
         ultimo_cierre = None
-        
+
         if ultimo_cierre_contabilidad:
             ultimo_cierre = ultimo_cierre_contabilidad.periodo
             if ultimo_cierre_contabilidad.estado in ['atrasado', 'pendiente']:
@@ -268,11 +263,6 @@ def metricas_avanzadas(request):
         fecha_creacion__gte=fecha_inicio
     ).count()
     
-    cierres_nomina = CierreNomina.objects.filter(
-        cliente__in=clientes_query,
-        fecha_creacion__gte=fecha_inicio
-    ).count()
-    
     # KPIs calculados
     promedio_clientes_por_analista = round(total_clientes / total_analistas, 1) if total_analistas > 0 else 0
     porcentaje_asignacion = round((clientes_asignados / total_clientes) * 100, 1) if total_clientes > 0 else 0
@@ -304,7 +294,7 @@ def metricas_avanzadas(request):
             'total_analistas': total_analistas,
             'clientes_asignados': clientes_asignados,
             'clientes_sin_asignar': clientes_sin_asignar,
-            'cierres_periodo': cierres_contabilidad + cierres_nomina,
+            'cierres_periodo': cierres_contabilidad,
             'promedio_clientes_analista': promedio_clientes_por_analista,
             'porcentaje_asignacion': porcentaje_asignacion
         },

@@ -126,13 +126,12 @@ class AsignacionClienteUsuarioSerializer(serializers.ModelSerializer):
 class AnalistaPerformanceSerializer(serializers.ModelSerializer):
     clientes_asignados = serializers.IntegerField(read_only=True)
     cierres_contabilidad = serializers.IntegerField(read_only=True)
-    cierres_nomina = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Usuario
         fields = [
             'id', 'nombre', 'apellido', 'correo_bdo', 'cargo_bdo',
-            'clientes_asignados', 'cierres_contabilidad', 'cierres_nomina'
+            'clientes_asignados', 'cierres_contabilidad'
         ]
         read_only_fields = fields
 
@@ -141,7 +140,6 @@ class AnalistaDetalladoSerializer(serializers.ModelSerializer):
     clientes_asignados = serializers.IntegerField(read_only=True)
     cierres_completados = serializers.IntegerField(read_only=True)
     cierres_contabilidad = serializers.IntegerField(read_only=True)
-    cierres_nomina = serializers.IntegerField(read_only=True)
     eficiencia = serializers.FloatField(read_only=True)
     carga_trabajo = serializers.FloatField(read_only=True)
     areas = AreaSerializer(many=True, read_only=True)
@@ -150,8 +148,8 @@ class AnalistaDetalladoSerializer(serializers.ModelSerializer):
         model = Usuario
         fields = [
             'id', 'nombre', 'apellido', 'correo_bdo', 'cargo_bdo', 'fecha_registro',
-            'clientes_asignados', 'cierres_completados', 'cierres_contabilidad', 
-            'cierres_nomina', 'eficiencia', 'carga_trabajo', 'areas'
+            'clientes_asignados', 'cierres_completados', 'cierres_contabilidad',
+            'eficiencia', 'carga_trabajo', 'areas'
         ]
         read_only_fields = fields
 

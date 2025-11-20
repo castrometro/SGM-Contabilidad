@@ -112,10 +112,10 @@ export const UI_MESSAGES = {
  */
 export const STYLES_CONFIG = {
   containers: {
-    main: "min-h-screen bg-gray-900 text-white",
-    header: "bg-gray-800 border-b border-gray-700",
-    content: "max-w-4xl mx-auto px-6 py-8 space-y-8",
-    section: "bg-gray-800 rounded-lg p-6"
+    main: "min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 text-white",
+    header: "bg-gray-900/80 border-b border-gray-800 backdrop-blur",
+    content: "max-w-6xl mx-auto px-6 py-8",
+    section: "bg-gray-900/60 border border-gray-800 rounded-xl p-6 shadow-lg backdrop-blur"
   },
   
   buttons: {

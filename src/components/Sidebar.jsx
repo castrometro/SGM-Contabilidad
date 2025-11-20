@@ -4,7 +4,6 @@ import {
     Settings,
     Users,
     LayoutDashboard,
-    Wrench,
     ClipboardCheck,
   } from "lucide-react";
   import { useState } from "react";
@@ -18,8 +17,7 @@ import {
     if (tipo_usuario === "analista") {
       items.push(
         { name: "Dashboard", icon: LayoutDashboard, color: "#6366f1", href: "/menu" },
-        { name: "Clientes", icon: FolderOpen, color: "#10B981", href: "/menu/clientes" },
-        { name: "Herramientas", icon: Wrench, color: "#F59E0B", href: "/menu/tools" }
+        { name: "Clientes", icon: FolderOpen, color: "#10B981", href: "/menu/clientes" }
       );
     }
   

@@ -9,18 +9,29 @@ const FileUploadSection = ({
   procesando,
   onArchivoSeleccionado,
   onLimpiarArchivo,
-  onProcesar
+  onProcesar,
+  showProcesar = true,
+  showTitle = true,
+  useContainer = true
 }) => {
   const { steps, fileConfig } = CAPTURA_CONFIG;
   const { containers, buttons } = STYLES_CONFIG;
   const { processing } = UI_MESSAGES;
 
+  const Wrapper = ({ children }) => (useContainer ? (
+    <div className={containers.section}>{children}</div>
+  ) : (
+    <>{children}</>
+  ));
+
   return (
-    <div className={containers.section}>
-      <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-        <steps.upload.icon className="w-5 h-5" />
-        {steps.upload.title}
-      </h2>
+    <Wrapper>
+      {showTitle && (
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <steps.upload.icon className="w-5 h-5" />
+          {steps.upload.title}
+        </h2>
+      )}
       
       <div className="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center">
         <input
@@ -68,7 +79,7 @@ const FileUploadSection = ({
         </div>
       )}
 
-      {archivo && (
+      {archivo && showProcesar && (
         <button
           onClick={onProcesar}
           disabled={procesando}
@@ -84,7 +95,7 @@ const FileUploadSection = ({
           )}
         </button>
       )}
-    </div>
+    </Wrapper>
   );
 };
 

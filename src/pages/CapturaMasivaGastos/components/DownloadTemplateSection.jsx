@@ -4,16 +4,24 @@ import { CAPTURA_CONFIG, STYLES_CONFIG } from "../config/capturaConfig";
 /**
  * Componente para descargar la plantilla Excel
  */
-const DownloadTemplateSection = ({ onDownload }) => {
+const DownloadTemplateSection = ({ onDownload, showTitle = true, useContainer = true }) => {
   const { steps } = CAPTURA_CONFIG;
   const { containers, buttons } = STYLES_CONFIG;
 
+  const Wrapper = ({ children }) => (useContainer ? (
+    <div className={containers.section}>{children}</div>
+  ) : (
+    <>{children}</>
+  ));
+
   return (
-    <div className={containers.section}>
-      <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-        <steps.download.icon className="w-5 h-5" />
-        {steps.download.title}
-      </h2>
+    <Wrapper>
+      {showTitle && (
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <steps.download.icon className="w-5 h-5" />
+          {steps.download.title}
+        </h2>
+      )}
       <p className="text-gray-400 mb-4">
         {steps.download.description}
       </p>
@@ -24,7 +32,7 @@ const DownloadTemplateSection = ({ onDownload }) => {
         <FileSpreadsheet className="w-4 h-4" />
         Descargar Plantilla Excel
       </button>
-    </div>
+    </Wrapper>
   );
 };
 

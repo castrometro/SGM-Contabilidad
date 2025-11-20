@@ -28,7 +28,6 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/', include('api.urls')),
     path('api/contabilidad/', include('contabilidad.urls')),
-    path('api/nomina/', include('nomina.urls')),
 ]
 
 # Esto debe ir DESPUÉS de definir urlpatterns

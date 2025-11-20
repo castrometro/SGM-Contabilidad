@@ -19,8 +19,8 @@ from contabilidad.models import (
     TipoDocumentoArchivo,  # Agregado para definir TipoDocumentoArchivo
 )
 from api.models import Cliente
+from contabilidad.utils.activity_logger import registrar_actividad_tarjeta
 from contabilidad.utils.parser_tipo_documento import parsear_tipo_documento_excel
-from nomina.models_logging_stub import registrar_actividad_tarjeta_nomina as registrar_actividad_tarjeta
 from django.core.files.storage import default_storage
 from django.utils import timezone
 
