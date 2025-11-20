@@ -1,5 +1,5 @@
 import OpcionMenu from "../components/OpcionMenu";
-import { Users, Wrench } from "lucide-react";
+import { Users } from "lucide-react";
 
 const MenuUsuario = () => {
   const opciones = [
@@ -9,13 +9,6 @@ const MenuUsuario = () => {
       icon: Users,
       color: "#3B82F6",
       path: "/menu/clientes"
-    },
-    {
-      label: "RindeGastos",
-      descripcion: "Captura y procesamiento de gastos",
-      icon: Wrench,
-      color: "#10B981",
-      path: "/menu/tools/captura-masiva-gastos"
     }
   ];
 

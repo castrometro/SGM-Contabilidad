@@ -17,9 +17,9 @@ const isRindeGastos = (servicioNombre = "") => {
   return nombrePlano.includes("rindegastos") || nombrePlano.startsWith("rinde");
 };
 
-const RindeGastosCard = () => (
+const RindeGastosCard = ({ clienteId }) => (
   <Link
-    to="/menu/tools/captura-masiva-gastos"
+    to={`/menu/clientes/${clienteId}/rindegastos`}
     className="group bg-gray-800 border border-gray-700 rounded-xl p-6 shadow-lg flex items-center gap-3 hover:border-emerald-500/60 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
   >
     <div className="p-3 rounded-lg bg-emerald-600/20 group-hover:bg-emerald-600/25 transition-colors">
@@ -29,9 +29,9 @@ const RindeGastosCard = () => (
   </Link>
 );
 
-const ServicioCard = ({ servicio }) => {
+const ServicioCard = ({ servicio, clienteId }) => {
   if (isRindeGastos(servicio.nombre)) {
-    return <RindeGastosCard />;
+    return <RindeGastosCard clienteId={clienteId} />;
   }
 
   return (
@@ -198,7 +198,11 @@ const ClienteDetalle = () => {
         {serviciosOrdenados.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {serviciosOrdenados.map((servicio, index) => (
-              <ServicioCard key={servicio.id ?? `${servicio.nombre}-${index}`} servicio={servicio} />
+              <ServicioCard
+                key={servicio.id ?? `${servicio.nombre}-${index}`}
+                servicio={servicio}
+                clienteId={clienteId}
+              />
             ))}
           </div>
         ) : (
