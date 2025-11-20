@@ -15,7 +15,7 @@ const RindeGastosCard = ({ servicio, onIrAGastos }) => {
   const esActivo = servicio.activo !== false;
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 shadow-lg transition-colors hover:border-gray-600">
+    <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 shadow-lg transition-colors hover:border-gray-600 space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <div className="p-3 rounded-lg bg-emerald-600/20">
@@ -24,12 +24,9 @@ const RindeGastosCard = ({ servicio, onIrAGastos }) => {
           <div>
             <p className="text-xs uppercase tracking-wide text-gray-400">Servicio contratado</p>
             <h3 className="text-xl font-bold text-white">RindeGastos</h3>
-            <p className="text-gray-300 text-sm">
+            <p className="text-gray-300 text-sm leading-relaxed">
               {servicio.descripcion || "Captura y procesamiento de gastos"}
             </p>
-            {servicio.area && (
-              <p className="text-xs text-gray-400 mt-1">Área: {servicio.area}</p>
-            )}
           </div>
         </div>
         <span
@@ -41,7 +38,29 @@ const RindeGastosCard = ({ servicio, onIrAGastos }) => {
           {esActivo ? "Servicio activo" : "Servicio inactivo"}
         </span>
       </div>
-      <div className="flex flex-wrap gap-3 items-center mt-4">
+
+      <div className="bg-gray-900/40 border border-gray-700 rounded-lg p-4 space-y-3">
+        <div className="flex flex-wrap gap-3 text-sm text-gray-300">
+          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-200">
+            <ReceiptText className="w-4 h-4" />
+            Captura masiva y contabilización
+          </span>
+          {servicio.area && (
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 text-blue-200 border border-blue-500/20">
+              <Building2 className="w-4 h-4" /> Área: {servicio.area}
+            </span>
+          )}
+          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-700/60 text-gray-100 border border-gray-600">
+            <Info className="w-4 h-4" /> Módulo prioritario para clientes activos
+          </span>
+        </div>
+        <p className="text-sm text-gray-300 leading-relaxed">
+          Gestiona los gastos de manera centralizada, con cargas masivas desde Excel y trazabilidad
+          completa hacia la contabilización.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-3 items-center">
         <button
           onClick={onIrAGastos}
           className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-colors disabled:opacity-60"
@@ -49,9 +68,8 @@ const RindeGastosCard = ({ servicio, onIrAGastos }) => {
         >
           Ir a RindeGastos
         </button>
-        <span className="inline-flex items-center gap-2 text-sm px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-200">
-          <ReceiptText className="w-4 h-4" />
-          Captura masiva y contabilización
+        <span className="text-sm text-gray-300">
+          Accede al flujo de captura masiva y contabilización directamente desde aquí.
         </span>
       </div>
     </div>
