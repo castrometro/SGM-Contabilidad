@@ -11,12 +11,15 @@ import {
 } from "lucide-react";
 
 const RindeGastosCard = () => (
-  <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 shadow-lg flex items-center gap-3">
+  <Link
+    to="/menu/tools/captura-masiva-gastos"
+    className="bg-gray-800 border border-gray-700 rounded-xl p-6 shadow-lg flex items-center gap-3 hover:border-emerald-500/60 transition"
+  >
     <div className="p-3 rounded-lg bg-emerald-600/20">
       <Wrench className="w-6 h-6 text-emerald-400" />
     </div>
     <h3 className="text-xl font-bold text-white">RindeGastos</h3>
-  </div>
+  </Link>
 );
 
 const ServicioCard = ({ servicio }) => {
@@ -107,7 +110,7 @@ const ClienteDetalle = () => {
   }
 
   return (
-    <div className="text-white space-y-6">
+    <div className="text-white space-y-6 animate-page-fade">
       <div className="bg-gradient-to-br from-gray-800 via-gray-800 to-gray-900 rounded-xl shadow-xl border border-gray-700/70 overflow-hidden">
         <div className="bg-gradient-to-r from-emerald-600/15 via-blue-600/10 to-indigo-600/15 p-6 border-b border-gray-700/60">
           <div className="flex items-start justify-between gap-4">
@@ -188,6 +191,23 @@ const ClienteDetalle = () => {
           </div>
         )}
       </div>
+
+      <style>{`
+        @keyframes page-fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(12px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .animate-page-fade {
+          animation: page-fade-in 0.5s ease-out;
+        }
+      `}</style>
     </div>
   );
 };
