@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'api',
     'contabilidad',
+    'rindegastos',
     'corsheaders',
 ]
 
