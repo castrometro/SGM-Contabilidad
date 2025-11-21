@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useCapturaGastos } from "./hooks/useCapturaGastos";
+import { useAuth } from "../../hooks/useAuth";
 import PageHeader from "./components/PageHeader";
 import InstructionsSection from "./components/InstructionsSection";
 import DownloadTemplateSection from "./components/DownloadTemplateSection";
@@ -15,7 +16,13 @@ import {
   obtenerCentrosCosto,
   obtenerCuentasGlobales,
   obtenerRendiciones,
-  obtenerTiposDocumento
+  obtenerTiposDocumento,
+  crearCentroCosto,
+  actualizarCentroCosto,
+  crearTipoDocumento,
+  actualizarTipoDocumento,
+  crearCuentaGlobal,
+  actualizarCuentaGlobal
 } from "../../api/rindeGastos";
 
 const normalizarNombre = (valor = "") => valor.toString().normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
@@ -52,6 +59,7 @@ const StepCard = ({ number, title, subtitle, locked = false, children }) => {
  */
 const CapturaMasivaGastos = () => {
   const { clienteId } = useParams();
+  const { usuario } = useAuth();
   const [cliente, setCliente] = useState(null);
   const [cargandoCliente, setCargandoCliente] = useState(false);
   const [clienteServicioId, setClienteServicioId] = useState(null);
@@ -93,6 +101,15 @@ const CapturaMasivaGastos = () => {
   const [cargandoConfiguracion, setCargandoConfiguracion] = useState(false);
   const [errorConfiguracion, setErrorConfiguracion] = useState("");
   const [configuracionCargada, setConfiguracionCargada] = useState(false);
+  const [centroForm, setCentroForm] = useState({ apodo: "", codigo: "", activo: true });
+  const [tipoDocForm, setTipoDocForm] = useState({ nombre: "", codigo: "" });
+  const [cuentaGlobalForm, setCuentaGlobalForm] = useState({ codigo: "", tipo: "" });
+  const [editingCentroId, setEditingCentroId] = useState(null);
+  const [editingTipoId, setEditingTipoId] = useState(null);
+  const [editingCuentaId, setEditingCuentaId] = useState(null);
+  const [guardando, setGuardando] = useState(false);
+  const [mensajeGuardado, setMensajeGuardado] = useState("");
+  const [errorGuardado, setErrorGuardado] = useState("");
 
   const { containers, buttons, alerts } = STYLES_CONFIG;
   const { steps } = CAPTURA_CONFIG;
@@ -211,35 +228,35 @@ const CapturaMasivaGastos = () => {
     }
   }, [activeTab, clienteServicioId, historialCargado]);
 
-  useEffect(() => {
-    const cargarConfiguracion = async () => {
-      if (!clienteServicioId) return;
-      try {
-        setCargandoConfiguracion(true);
-        setErrorConfiguracion("");
-        const [centros, tipos, cuentas] = await Promise.all([
-          obtenerCentrosCosto(clienteServicioId),
-          obtenerTiposDocumento(clienteServicioId),
-          obtenerCuentasGlobales(clienteServicioId)
-        ]);
-        setConfiguracion({
-          centrosCosto: Array.isArray(centros) ? centros : [],
-          tiposDocumento: Array.isArray(tipos) ? tipos : [],
-          cuentasGlobales: Array.isArray(cuentas) ? cuentas : []
-        });
-        setConfiguracionCargada(true);
-      } catch (error) {
-        console.error("Error cargando configuraciones RG", error);
-        setErrorConfiguracion(error.message);
-      } finally {
-        setCargandoConfiguracion(false);
-      }
-    };
+  const cargarConfiguracion = useCallback(async () => {
+    if (!clienteServicioId) return;
+    try {
+      setCargandoConfiguracion(true);
+      setErrorConfiguracion("");
+      const [centros, tipos, cuentas] = await Promise.all([
+        obtenerCentrosCosto(clienteServicioId),
+        obtenerTiposDocumento(clienteServicioId),
+        obtenerCuentasGlobales(clienteServicioId)
+      ]);
+      setConfiguracion({
+        centrosCosto: Array.isArray(centros) ? centros : [],
+        tiposDocumento: Array.isArray(tipos) ? tipos : [],
+        cuentasGlobales: Array.isArray(cuentas) ? cuentas : []
+      });
+      setConfiguracionCargada(true);
+    } catch (error) {
+      console.error("Error cargando configuraciones RG", error);
+      setErrorConfiguracion(error.message);
+    } finally {
+      setCargandoConfiguracion(false);
+    }
+  }, [clienteServicioId]);
 
+  useEffect(() => {
     if (activeTab === "configuraciones" && !configuracionCargada) {
       cargarConfiguracion();
     }
-  }, [activeTab, clienteServicioId, configuracionCargada]);
+  }, [activeTab, configuracionCargada, cargarConfiguracion]);
 
   const formatearFecha = (valor) => {
     if (!valor) return "Sin fecha";
@@ -301,6 +318,99 @@ const CapturaMasivaGastos = () => {
     );
   };
 
+  const puedeEditarConfiguracion = useMemo(() => {
+    if (!usuario) return false;
+    const esGerente = usuario.tipo_usuario === "gerente";
+    const asignadoAlCliente = Array.isArray(cliente?.analistas_asignados)
+      ? cliente.analistas_asignados.some(
+          (asignacion) => asignacion.id === usuario.id || asignacion.usuario === usuario.id
+        )
+      : false;
+    return esGerente || asignadoAlCliente;
+  }, [cliente?.analistas_asignados, usuario]);
+
+  const resetForms = () => {
+    setCentroForm({ apodo: "", codigo: "", activo: true });
+    setTipoDocForm({ nombre: "", codigo: "" });
+    setCuentaGlobalForm({ codigo: "", tipo: "" });
+    setEditingCentroId(null);
+    setEditingTipoId(null);
+    setEditingCuentaId(null);
+  };
+
+  const handleGuardarCentro = async (e) => {
+    e.preventDefault();
+    if (!clienteServicioId || !puedeEditarConfiguracion) return;
+    try {
+      setGuardando(true);
+      setErrorGuardado("");
+      const payload = {
+        apodo: centroForm.apodo,
+        codigo: centroForm.codigo,
+        activo: Boolean(centroForm.activo)
+      };
+      if (editingCentroId) {
+        await actualizarCentroCosto(editingCentroId, payload);
+      } else {
+        await crearCentroCosto(clienteServicioId, payload);
+      }
+      setMensajeGuardado("Centro de costo guardado correctamente");
+      resetForms();
+      cargarConfiguracion();
+    } catch (error) {
+      console.error("Error guardando centro de costo", error);
+      setErrorGuardado(error.message || "No se pudo guardar el centro de costo");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const handleGuardarTipo = async (e) => {
+    e.preventDefault();
+    if (!clienteServicioId || !puedeEditarConfiguracion) return;
+    try {
+      setGuardando(true);
+      setErrorGuardado("");
+      const payload = { nombre: tipoDocForm.nombre, codigo: tipoDocForm.codigo };
+      if (editingTipoId) {
+        await actualizarTipoDocumento(editingTipoId, payload);
+      } else {
+        await crearTipoDocumento(clienteServicioId, payload);
+      }
+      setMensajeGuardado("Tipo de documento guardado");
+      resetForms();
+      cargarConfiguracion();
+    } catch (error) {
+      console.error("Error guardando tipo de documento", error);
+      setErrorGuardado(error.message || "No se pudo guardar el tipo de documento");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const handleGuardarCuenta = async (e) => {
+    e.preventDefault();
+    if (!clienteServicioId || !puedeEditarConfiguracion) return;
+    try {
+      setGuardando(true);
+      setErrorGuardado("");
+      const payload = { codigo: cuentaGlobalForm.codigo, tipo: cuentaGlobalForm.tipo };
+      if (editingCuentaId) {
+        await actualizarCuentaGlobal(editingCuentaId, payload);
+      } else {
+        await crearCuentaGlobal(clienteServicioId, payload);
+      }
+      setMensajeGuardado("Cuenta global guardada");
+      resetForms();
+      cargarConfiguracion();
+    } catch (error) {
+      console.error("Error guardando cuenta global", error);
+      setErrorGuardado(error.message || "No se pudo guardar la cuenta global");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
   const renderConfiguraciones = () => {
     if (cargandoServicio || cargandoConfiguracion) {
       return <div className="text-gray-200">Cargando configuraciones...</div>;
@@ -329,57 +439,262 @@ const CapturaMasivaGastos = () => {
     const { centrosCosto, tiposDocumento, cuentasGlobales } = configuracion;
 
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-2">
-          <h3 className="text-white font-semibold">Centros de costo</h3>
-          {centrosCosto.length ? (
-            <ul className="space-y-1 text-sm text-gray-200 max-h-64 overflow-auto">
-              {centrosCosto.map((cc) => (
-                <li key={cc.id} className="flex items-center justify-between border-b border-gray-700/60 pb-1 last:border-b-0">
-                  <span>{cc.apodo}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded ${cc.activo ? "bg-emerald-500/10 text-emerald-200" : "bg-gray-700 text-gray-300"}`}>
-                    {cc.codigo || "Sin código"}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-gray-400 text-sm">No hay centros de costo configurados.</p>
+      <div className="space-y-4">
+        <div className="bg-gray-900/40 border border-gray-800 rounded-lg p-4 text-sm text-gray-200 flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">⚙️</span>
+            <div>
+              <p className="text-white font-semibold">Configuración de RindeGastos</p>
+              <p className="text-gray-400">
+                {puedeEditarConfiguracion
+                  ? "Puedes crear y editar las configuraciones del servicio."
+                  : "Solo los gerentes o usuarios asignados al cliente pueden editar la configuración."
+                }
+              </p>
+            </div>
+          </div>
+          {!puedeEditarConfiguracion && (
+            <div className="text-amber-200 bg-amber-900/20 border border-amber-700 rounded-md px-3 py-2">
+              Acceso de solo lectura. Solicita permisos a tu gerente si necesitas editar.
+            </div>
           )}
         </div>
 
-        <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-2">
-          <h3 className="text-white font-semibold">Tipos de documento</h3>
-          {tiposDocumento.length ? (
-            <ul className="space-y-1 text-sm text-gray-200 max-h-64 overflow-auto">
-              {tiposDocumento.map((doc) => (
-                <li key={doc.id} className="flex items-center justify-between border-b border-gray-700/60 pb-1 last:border-b-0">
-                  <span>{doc.nombre}</span>
-                  <span className="text-xs px-2 py-0.5 rounded bg-blue-500/10 text-blue-200 border border-blue-500/30">{doc.codigo}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-gray-400 text-sm">No hay tipos de documento registrados.</p>
-          )}
-        </div>
+        {mensajeGuardado && (
+          <div className="bg-emerald-900/30 border border-emerald-700 text-emerald-100 rounded-md px-4 py-3 text-sm">
+            {mensajeGuardado}
+          </div>
+        )}
+        {errorGuardado && <ErrorSection error={errorGuardado} />}
 
-        <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-2">
-          <h3 className="text-white font-semibold">Cuentas globales</h3>
-          {cuentasGlobales.length ? (
-            <ul className="space-y-1 text-sm text-gray-200 max-h-64 overflow-auto">
-              {cuentasGlobales.map((cuenta) => (
-                <li key={cuenta.id} className="flex items-center justify-between border-b border-gray-700/60 pb-1 last:border-b-0">
-                  <span>{cuenta.codigo}</span>
-                  <span className="text-xs px-2 py-0.5 rounded bg-purple-500/10 text-purple-200 border border-purple-500/30">
-                    {cuenta.tipo}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-gray-400 text-sm">No hay cuentas globales definidas.</p>
-          )}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-white font-semibold">Centros de costo</h3>
+              {editingCentroId && (
+                <button
+                  onClick={resetForms}
+                  className="text-xs text-gray-300 underline"
+                  type="button"
+                >
+                  Cancelar edición
+                </button>
+              )}
+            </div>
+            <form className="space-y-3" onSubmit={handleGuardarCentro}>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Nombre / apodo</label>
+                <input
+                  className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
+                  value={centroForm.apodo}
+                  onChange={(e) => setCentroForm({ ...centroForm, apodo: e.target.value })}
+                  disabled={!puedeEditarConfiguracion || guardando}
+                  required
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-400 mb-1">Código</label>
+                  <input
+                    className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
+                    value={centroForm.codigo}
+                    onChange={(e) => setCentroForm({ ...centroForm, codigo: e.target.value })}
+                    disabled={!puedeEditarConfiguracion || guardando}
+                    placeholder="Ej: CC-001"
+                  />
+                </div>
+                <label className="flex items-center gap-2 text-sm text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={centroForm.activo}
+                    onChange={(e) => setCentroForm({ ...centroForm, activo: e.target.checked })}
+                    disabled={!puedeEditarConfiguracion || guardando}
+                  />
+                  Activo
+                </label>
+              </div>
+              <button
+                type="submit"
+                disabled={!puedeEditarConfiguracion || guardando}
+                className={`w-full ${buttons.primary} ${(!puedeEditarConfiguracion || guardando) ? buttons.disabled : ""}`}
+              >
+                {guardando && editingCentroId ? "Actualizando..." : guardando ? "Guardando..." : editingCentroId ? "Actualizar centro" : "Crear centro"}
+              </button>
+            </form>
+            <div className="border-t border-gray-700 pt-3">
+              {centrosCosto.length ? (
+                <ul className="space-y-2 text-sm text-gray-200 max-h-64 overflow-auto">
+                  {centrosCosto.map((cc) => (
+                    <li key={cc.id} className="flex items-center justify-between gap-2 border border-gray-700/60 rounded px-3 py-2">
+                      <div>
+                        <p className="text-white font-medium">{cc.apodo}</p>
+                        <p className="text-xs text-gray-400">Código: {cc.codigo || "Sin código"}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs px-2 py-0.5 rounded ${cc.activo ? "bg-emerald-500/10 text-emerald-200" : "bg-gray-700 text-gray-300"}`}>
+                          {cc.activo ? "Activo" : "Inactivo"}
+                        </span>
+                        {puedeEditarConfiguracion && (
+                          <button
+                            onClick={() => {
+                              setCentroForm({ apodo: cc.apodo || "", codigo: cc.codigo || "", activo: cc.activo });
+                              setEditingCentroId(cc.id);
+                              setMensajeGuardado("");
+                              setErrorGuardado("");
+                            }}
+                            className="text-xs text-emerald-200 underline"
+                          >
+                            Editar
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-gray-400 text-sm">No hay centros de costo configurados.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-white font-semibold">Tipos de documento</h3>
+              {editingTipoId && (
+                <button onClick={resetForms} className="text-xs text-gray-300 underline" type="button">
+                  Cancelar edición
+                </button>
+              )}
+            </div>
+            <form className="space-y-3" onSubmit={handleGuardarTipo}>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Nombre</label>
+                <input
+                  className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
+                  value={tipoDocForm.nombre}
+                  onChange={(e) => setTipoDocForm({ ...tipoDocForm, nombre: e.target.value })}
+                  disabled={!puedeEditarConfiguracion || guardando}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Código</label>
+                <input
+                  className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
+                  value={tipoDocForm.codigo}
+                  onChange={(e) => setTipoDocForm({ ...tipoDocForm, codigo: e.target.value })}
+                  disabled={!puedeEditarConfiguracion || guardando}
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={!puedeEditarConfiguracion || guardando}
+                className={`w-full ${buttons.primary} ${(!puedeEditarConfiguracion || guardando) ? buttons.disabled : ""}`}
+              >
+                {guardando && editingTipoId ? "Actualizando..." : guardando ? "Guardando..." : editingTipoId ? "Actualizar tipo" : "Crear tipo"}
+              </button>
+            </form>
+            <div className="border-t border-gray-700 pt-3">
+              {tiposDocumento.length ? (
+                <ul className="space-y-2 text-sm text-gray-200 max-h-64 overflow-auto">
+                  {tiposDocumento.map((doc) => (
+                    <li key={doc.id} className="flex items-center justify-between gap-2 border border-gray-700/60 rounded px-3 py-2">
+                      <div>
+                        <p className="text-white font-medium">{doc.nombre}</p>
+                        <p className="text-xs text-gray-400">Código: {doc.codigo}</p>
+                      </div>
+                      {puedeEditarConfiguracion && (
+                        <button
+                          onClick={() => {
+                            setTipoDocForm({ nombre: doc.nombre || "", codigo: doc.codigo || "" });
+                            setEditingTipoId(doc.id);
+                            setMensajeGuardado("");
+                            setErrorGuardado("");
+                          }}
+                          className="text-xs text-blue-200 underline"
+                        >
+                          Editar
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-gray-400 text-sm">No hay tipos de documento registrados.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-white font-semibold">Cuentas globales</h3>
+              {editingCuentaId && (
+                <button onClick={resetForms} className="text-xs text-gray-300 underline" type="button">
+                  Cancelar edición
+                </button>
+              )}
+            </div>
+            <form className="space-y-3" onSubmit={handleGuardarCuenta}>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Código</label>
+                <input
+                  className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
+                  value={cuentaGlobalForm.codigo}
+                  onChange={(e) => setCuentaGlobalForm({ ...cuentaGlobalForm, codigo: e.target.value })}
+                  disabled={!puedeEditarConfiguracion || guardando}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Tipo</label>
+                <input
+                  className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
+                  value={cuentaGlobalForm.tipo}
+                  onChange={(e) => setCuentaGlobalForm({ ...cuentaGlobalForm, tipo: e.target.value })}
+                  disabled={!puedeEditarConfiguracion || guardando}
+                  required
+                  placeholder="Ej: gasto, proveedores, iva"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={!puedeEditarConfiguracion || guardando}
+                className={`w-full ${buttons.primary} ${(!puedeEditarConfiguracion || guardando) ? buttons.disabled : ""}`}
+              >
+                {guardando && editingCuentaId ? "Actualizando..." : guardando ? "Guardando..." : editingCuentaId ? "Actualizar cuenta" : "Crear cuenta"}
+              </button>
+            </form>
+            <div className="border-t border-gray-700 pt-3">
+              {cuentasGlobales.length ? (
+                <ul className="space-y-2 text-sm text-gray-200 max-h-64 overflow-auto">
+                  {cuentasGlobales.map((cuenta) => (
+                    <li key={cuenta.id} className="flex items-center justify-between gap-2 border border-gray-700/60 rounded px-3 py-2">
+                      <div>
+                        <p className="text-white font-medium">{cuenta.codigo}</p>
+                        <p className="text-xs text-gray-400">Tipo: {cuenta.tipo}</p>
+                      </div>
+                      {puedeEditarConfiguracion && (
+                        <button
+                          onClick={() => {
+                            setCuentaGlobalForm({ codigo: cuenta.codigo || "", tipo: cuenta.tipo || "" });
+                            setEditingCuentaId(cuenta.id);
+                            setMensajeGuardado("");
+                            setErrorGuardado("");
+                          }}
+                          className="text-xs text-purple-200 underline"
+                        >
+                          Editar
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-gray-400 text-sm">No hay cuentas globales definidas.</p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     );

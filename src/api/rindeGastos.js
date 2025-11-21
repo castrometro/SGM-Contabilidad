@@ -27,6 +27,28 @@ const fetchRindeGastos = async (endpoint) => {
   return response.json();
 };
 
+const enviarRindeGastos = async (endpoint, payload, method = 'POST') => {
+  const response = await fetch(`${API_RINDE_GASTOS_BASE_URL}${endpoint}`, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
+    body: JSON.stringify(payload || {}),
+  });
+
+  if (!response.ok) {
+    let errorText = 'Error consultando servicio RindeGastos';
+    try {
+      const err = await response.json();
+      errorText = err.error || errorText;
+    } catch (_) {}
+    throw new Error(errorText);
+  }
+
+  return response.json();
+};
+
 export const rgLeerHeadersExcel = async (archivo) => {
   const formData = new FormData();
   formData.append('archivo', archivo);
@@ -203,4 +225,37 @@ export const obtenerTiposDocumento = async (clienteServicioId) => {
 export const obtenerCuentasGlobales = async (clienteServicioId) => {
   const query = clienteServicioId ? `?cliente_servicio=${clienteServicioId}` : '';
   return fetchRindeGastos(`/cuentas-globales/${query}`);
+};
+
+export const crearCentroCosto = async (clienteServicioId, payload) => {
+  return enviarRindeGastos('/centros-costo/', {
+    ...payload,
+    cliente_servicio: clienteServicioId,
+  });
+};
+
+export const actualizarCentroCosto = async (id, payload) => {
+  return enviarRindeGastos(`/centros-costo/${id}/`, payload, 'PUT');
+};
+
+export const crearTipoDocumento = async (clienteServicioId, payload) => {
+  return enviarRindeGastos('/tipos-documento/', {
+    ...payload,
+    cliente_servicio: clienteServicioId,
+  });
+};
+
+export const actualizarTipoDocumento = async (id, payload) => {
+  return enviarRindeGastos(`/tipos-documento/${id}/`, payload, 'PUT');
+};
+
+export const crearCuentaGlobal = async (clienteServicioId, payload) => {
+  return enviarRindeGastos('/cuentas-globales/', {
+    ...payload,
+    cliente_servicio: clienteServicioId,
+  });
+};
+
+export const actualizarCuentaGlobal = async (id, payload) => {
+  return enviarRindeGastos(`/cuentas-globales/${id}/`, payload, 'PUT');
 };
