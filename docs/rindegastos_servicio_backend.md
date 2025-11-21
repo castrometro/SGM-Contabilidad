@@ -22,59 +22,55 @@ Crear una tabla que represente la suscripción/activación de un servicio por cl
 ### 2. App Django `rindegastos`
 Crear una aplicación dedicada con sus propios modelos y migraciones, aislada de otros servicios.
 
-Modelos iniciales sugeridos:
-- **CentroCosto**: representa unidades de gasto del cliente.
+Modelos iniciales sugeridos (enfoque simplificado):
+- **TipoDocumento**: catálogo de tipos (boleta, factura, etc.) asociados al servicio del cliente.
   - `cliente_servicio` (FK a la tabla pivote Cliente-Servicio)
-  - `nombre`, `codigo`, `activo`
-- **CategoriaGasto**: catálogo configurable de categorías.
+  - `codigo`, `nombre`
+- **CentroCosto**: representa unidades de gasto del cliente.
   - `cliente_servicio` (FK)
-  - `nombre`, `descripcion`, `limite_monto` (opcional)
-- **ReporteGasto**: cabecera del reporte rendido.
+  - `apodo` (nombre corto), `codigo`, `activo`
+- **CuentaGlobal**: mapea códigos contables generales por tipo (IVA, GASTO, PROVEEDOR).
   - `cliente_servicio` (FK)
-  - `usuario`/`empleado` responsable (FK a usuario/empleado del sistema)
-  - `estado` (`borrador`, `en_revision`, `aprobado`, `rechazado`)
-  - `monto_total`, `moneda`, `fecha_envio`, `comentario`
-- **ItemGasto**: ítems del reporte.
-  - `reporte` (FK a ReporteGasto)
-  - `categoria` (FK a CategoriaGasto)
-  - `monto`, `moneda`, `fecha`, `descripcion`, `adjunto` (FileField/URL de almacenamiento)
-- **FlujoAprobacion** (opcional fase 2): define steps de aprobación por importe o centro de costo.
+  - `codigo`, `tipo`
+- **Rendicion**: registro de cada ejecución/exportación generada para el cliente.
+  - `cliente_servicio` (FK)
+  - `usuario` ejecutor, `fecha_ejecucion`, `datos_archivo` (JSON con metadatos del archivo generado)
 
-Las FK hacia `cliente_servicio` garantizan que los datos estén ligados a la activación del servicio para un cliente concreto.
+Las FK hacia `cliente_servicio` garantizan que los datos estén ligados a la activación del servicio para un cliente concreto sin
+sumar lógica adicional de aprobaciones o ítems de gasto en esta fase.
 
 ## API y vistas
 - Prefijar rutas bajo `/api/rindegastos/` para mantener el espacio de nombres.
-- Usar ViewSets/DRF para CRUD de `CentroCosto`, `CategoriaGasto`, `ReporteGasto` e `ItemGasto`.
+- Usar ViewSets/DRF para CRUD de `TipoDocumento`, `CentroCosto`, `CuentaGlobal` y `Rendicion`.
 - Endpoints clave:
-  - `POST /api/rindegastos/reportes/` (crear reporte en borrador)
-  - `POST /api/rindegastos/reportes/{id}/enviar` (mover a `en_revision`)
-  - `POST /api/rindegastos/reportes/{id}/aprobar` y `/rechazar`
-  - `GET /api/rindegastos/reportes/?cliente_servicio=...` (filtrado por cliente-servicio)
-  - Upload de adjuntos mediante endpoint dedicado o direct upload a storage.
+  - `GET/POST /api/rindegastos/centros-costo/`
+  - `GET/POST /api/rindegastos/tipos-documento/`
+  - `GET/POST /api/rindegastos/cuentas-globales/`
+  - `GET/POST /api/rindegastos/rendiciones/`
 
 ## Integración con autenticación/autorización
 - Reutilizar el modelo de usuario existente.
-- Permisos sugeridos:
-  - **rindegastos.ver**: visualizar reportes del cliente.
-  - **rindegastos.editar**: crear/editar reportes propios.
-  - **rindegastos.aprobar**: aprobar/rechazar.
+- Permisos sugeridos (según necesidades del cliente):
+  - **rindegastos.ver_catalogos**: leer catálogos (tipos de documento, centros de costo, cuentas globales).
+  - **rindegastos.gestionar_catalogos**: crear/editar catálogos del servicio.
+  - **rindegastos.generar_rendicion**: crear entradas de rendición/exportación.
 - Los endpoints validan que el `cliente_servicio` pertenece al usuario autenticado y que el usuario posee permisos adecuados.
 
 ## Trazabilidad y auditoría
-- Registrar en un modelo `EventoRindeGastos` los cambios de estado de `ReporteGasto` (quién, cuándo, acción, comentario).
-- Integrar con el sistema de logging/activity existente si aplica, usando señales post_save para disparar eventos.
+- Registrar auditoría básica de creación/actualización de catálogos y rendiciones (por ejemplo, usando el sistema de logging
+  existente si aplica).
 
 ## Migración y despliegue
 1. Crear la app `rindegastos` con sus modelos y migraciones iniciales.
 2. Añadir la tabla pivote Cliente-Servicio (si no existe) en la app central.
 3. Registrar la app en `INSTALLED_APPS` y exponer rutas en el router DRF.
-4. Agregar fixtures de ejemplo (categorías, centros de costo) para QA.
-5. Incluir tests unitarios/integ. para flujos de creación, envío, aprobación y permisos.
+4. Agregar fixtures de ejemplo para catálogos básicos (tipos de documento, centros de costo, cuentas globales) para QA.
+5. Incluir tests unitarios/integ. para CRUD y permisos de catálogos/rendiciones.
 
 ## Roadmap incremental
-- **Fase 1**: modelos base (pivote, centro de costo, categoría, reporte, ítem), endpoints CRUD, permisos básicos, migraciones.
-- **Fase 2**: flujo de aprobación configurable, límites por categoría, adjuntos con storage externo, notificaciones.
-- **Fase 3**: dashboards/resúmenes, exportaciones, integraciones contables.
+- **Fase 1 (actual)**: catálogos básicos (tipo de documento, centro de costo, cuentas globales) y registro de rendiciones.
+- **Fase 2**: agregar validaciones/controles adicionales (límites, flujos de aprobación) si el cliente lo solicita.
+- **Fase 3**: dashboards/resúmenes y exportaciones contables.
 
 ## Beneficios
 - Aislamiento: la app `rindegastos` encapsula su lógica sin afectar otros servicios.
