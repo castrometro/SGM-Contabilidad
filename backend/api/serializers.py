@@ -68,7 +68,7 @@ class ServicioSerializer(serializers.ModelSerializer):
 class ServicioClienteSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServicioCliente
-        fields = ['id', 'servicio', 'cliente', 'valor', 'moneda']
+        fields = ['id', 'servicio', 'cliente', 'valor', 'moneda', 'estado', 'configuracion']
         read_only_fields = ['id']
 
 

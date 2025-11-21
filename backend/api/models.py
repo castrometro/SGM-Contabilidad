@@ -217,7 +217,8 @@ class Servicio(models.Model):
     )
 
     def __str__(self):
-        return f"{self.nombre} ({self.area.nombre})"
+        area_nombre = self.area.nombre if self.area else "Sin área"
+        return f"{self.nombre} ({area_nombre})"
 
 
 class ServicioCliente(models.Model):
@@ -238,6 +239,12 @@ class ServicioCliente(models.Model):
         choices=[('UF','UF'), ('USD','USD'), ('CLP','CLP')],
         default='CLP'
     )
+    estado = models.CharField(
+        max_length=20,
+        choices=[('activo', 'Activo'), ('suspendido', 'Suspendido'), ('finalizado', 'Finalizado')],
+        default='activo'
+    )
+    configuracion = models.JSONField(default=dict, blank=True)
 
     class Meta:
         unique_together = ('servicio', 'cliente')
