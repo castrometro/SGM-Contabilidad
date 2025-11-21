@@ -318,16 +318,7 @@ const CapturaMasivaGastos = () => {
     );
   };
 
-  const puedeEditarConfiguracion = useMemo(() => {
-    if (!usuario) return false;
-    const esGerente = usuario.tipo_usuario === "gerente";
-    const asignadoAlCliente = Array.isArray(cliente?.analistas_asignados)
-      ? cliente.analistas_asignados.some(
-          (asignacion) => asignacion.id === usuario.id || asignacion.usuario === usuario.id
-        )
-      : false;
-    return esGerente || asignadoAlCliente;
-  }, [cliente?.analistas_asignados, usuario]);
+  const puedeEditarConfiguracion = true;
 
   const resetForms = () => {
     setCentroForm({ apodo: "", codigo: "", activo: true });
@@ -340,7 +331,7 @@ const CapturaMasivaGastos = () => {
 
   const handleGuardarCentro = async (e) => {
     e.preventDefault();
-    if (!clienteServicioId || !puedeEditarConfiguracion) return;
+    if (!clienteServicioId) return;
     try {
       setGuardando(true);
       setErrorGuardado("");
@@ -367,7 +358,7 @@ const CapturaMasivaGastos = () => {
 
   const handleGuardarTipo = async (e) => {
     e.preventDefault();
-    if (!clienteServicioId || !puedeEditarConfiguracion) return;
+    if (!clienteServicioId) return;
     try {
       setGuardando(true);
       setErrorGuardado("");
@@ -390,7 +381,7 @@ const CapturaMasivaGastos = () => {
 
   const handleGuardarCuenta = async (e) => {
     e.preventDefault();
-    if (!clienteServicioId || !puedeEditarConfiguracion) return;
+    if (!clienteServicioId) return;
     try {
       setGuardando(true);
       setErrorGuardado("");
@@ -445,19 +436,9 @@ const CapturaMasivaGastos = () => {
             <span className="text-lg">⚙️</span>
             <div>
               <p className="text-white font-semibold">Configuración de RindeGastos</p>
-              <p className="text-gray-400">
-                {puedeEditarConfiguracion
-                  ? "Puedes crear y editar las configuraciones del servicio."
-                  : "Solo los gerentes o usuarios asignados al cliente pueden editar la configuración."
-                }
-              </p>
+              <p className="text-gray-400">Puedes crear y editar las configuraciones del servicio.</p>
             </div>
           </div>
-          {!puedeEditarConfiguracion && (
-            <div className="text-amber-200 bg-amber-900/20 border border-amber-700 rounded-md px-3 py-2">
-              Acceso de solo lectura. Solicita permisos a tu gerente si necesitas editar.
-            </div>
-          )}
         </div>
 
         {mensajeGuardado && (
@@ -488,7 +469,7 @@ const CapturaMasivaGastos = () => {
                   className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
                   value={centroForm.apodo}
                   onChange={(e) => setCentroForm({ ...centroForm, apodo: e.target.value })}
-                  disabled={!puedeEditarConfiguracion || guardando}
+                  disabled={guardando}
                   required
                 />
               </div>
@@ -499,7 +480,7 @@ const CapturaMasivaGastos = () => {
                     className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
                     value={centroForm.codigo}
                     onChange={(e) => setCentroForm({ ...centroForm, codigo: e.target.value })}
-                    disabled={!puedeEditarConfiguracion || guardando}
+                    disabled={guardando}
                     placeholder="Ej: CC-001"
                   />
                 </div>
@@ -508,15 +489,15 @@ const CapturaMasivaGastos = () => {
                     type="checkbox"
                     checked={centroForm.activo}
                     onChange={(e) => setCentroForm({ ...centroForm, activo: e.target.checked })}
-                    disabled={!puedeEditarConfiguracion || guardando}
+                    disabled={guardando}
                   />
                   Activo
                 </label>
               </div>
               <button
                 type="submit"
-                disabled={!puedeEditarConfiguracion || guardando}
-                className={`w-full ${buttons.primary} ${(!puedeEditarConfiguracion || guardando) ? buttons.disabled : ""}`}
+                disabled={guardando}
+                className={`w-full ${buttons.primary} ${(guardando) ? buttons.disabled : ""}`}
               >
                 {guardando && editingCentroId ? "Actualizando..." : guardando ? "Guardando..." : editingCentroId ? "Actualizar centro" : "Crear centro"}
               </button>
@@ -534,19 +515,17 @@ const CapturaMasivaGastos = () => {
                         <span className={`text-xs px-2 py-0.5 rounded ${cc.activo ? "bg-emerald-500/10 text-emerald-200" : "bg-gray-700 text-gray-300"}`}>
                           {cc.activo ? "Activo" : "Inactivo"}
                         </span>
-                        {puedeEditarConfiguracion && (
-                          <button
-                            onClick={() => {
-                              setCentroForm({ apodo: cc.apodo || "", codigo: cc.codigo || "", activo: cc.activo });
-                              setEditingCentroId(cc.id);
-                              setMensajeGuardado("");
-                              setErrorGuardado("");
-                            }}
-                            className="text-xs text-emerald-200 underline"
-                          >
-                            Editar
-                          </button>
-                        )}
+                        <button
+                          onClick={() => {
+                            setCentroForm({ apodo: cc.apodo || "", codigo: cc.codigo || "", activo: cc.activo });
+                            setEditingCentroId(cc.id);
+                            setMensajeGuardado("");
+                            setErrorGuardado("");
+                          }}
+                          className="text-xs text-emerald-200 underline"
+                        >
+                          Editar
+                        </button>
                       </div>
                     </li>
                   ))}
@@ -573,7 +552,7 @@ const CapturaMasivaGastos = () => {
                   className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
                   value={tipoDocForm.nombre}
                   onChange={(e) => setTipoDocForm({ ...tipoDocForm, nombre: e.target.value })}
-                  disabled={!puedeEditarConfiguracion || guardando}
+                  disabled={guardando}
                   required
                 />
               </div>
@@ -583,14 +562,14 @@ const CapturaMasivaGastos = () => {
                   className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
                   value={tipoDocForm.codigo}
                   onChange={(e) => setTipoDocForm({ ...tipoDocForm, codigo: e.target.value })}
-                  disabled={!puedeEditarConfiguracion || guardando}
+                  disabled={guardando}
                   required
                 />
               </div>
               <button
                 type="submit"
-                disabled={!puedeEditarConfiguracion || guardando}
-                className={`w-full ${buttons.primary} ${(!puedeEditarConfiguracion || guardando) ? buttons.disabled : ""}`}
+                disabled={guardando}
+                className={`w-full ${buttons.primary} ${(guardando) ? buttons.disabled : ""}`}
               >
                 {guardando && editingTipoId ? "Actualizando..." : guardando ? "Guardando..." : editingTipoId ? "Actualizar tipo" : "Crear tipo"}
               </button>
@@ -604,19 +583,17 @@ const CapturaMasivaGastos = () => {
                         <p className="text-white font-medium">{doc.nombre}</p>
                         <p className="text-xs text-gray-400">Código: {doc.codigo}</p>
                       </div>
-                      {puedeEditarConfiguracion && (
-                        <button
-                          onClick={() => {
-                            setTipoDocForm({ nombre: doc.nombre || "", codigo: doc.codigo || "" });
-                            setEditingTipoId(doc.id);
-                            setMensajeGuardado("");
-                            setErrorGuardado("");
-                          }}
-                          className="text-xs text-blue-200 underline"
-                        >
-                          Editar
-                        </button>
-                      )}
+                      <button
+                        onClick={() => {
+                          setTipoDocForm({ nombre: doc.nombre || "", codigo: doc.codigo || "" });
+                          setEditingTipoId(doc.id);
+                          setMensajeGuardado("");
+                          setErrorGuardado("");
+                        }}
+                        className="text-xs text-blue-200 underline"
+                      >
+                        Editar
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -642,7 +619,7 @@ const CapturaMasivaGastos = () => {
                   className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
                   value={cuentaGlobalForm.codigo}
                   onChange={(e) => setCuentaGlobalForm({ ...cuentaGlobalForm, codigo: e.target.value })}
-                  disabled={!puedeEditarConfiguracion || guardando}
+                  disabled={guardando}
                   required
                 />
               </div>
@@ -652,15 +629,15 @@ const CapturaMasivaGastos = () => {
                   className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
                   value={cuentaGlobalForm.tipo}
                   onChange={(e) => setCuentaGlobalForm({ ...cuentaGlobalForm, tipo: e.target.value })}
-                  disabled={!puedeEditarConfiguracion || guardando}
+                  disabled={guardando}
                   required
                   placeholder="Ej: gasto, proveedores, iva"
                 />
               </div>
               <button
                 type="submit"
-                disabled={!puedeEditarConfiguracion || guardando}
-                className={`w-full ${buttons.primary} ${(!puedeEditarConfiguracion || guardando) ? buttons.disabled : ""}`}
+                disabled={guardando}
+                className={`w-full ${buttons.primary} ${(guardando) ? buttons.disabled : ""}`}
               >
                 {guardando && editingCuentaId ? "Actualizando..." : guardando ? "Guardando..." : editingCuentaId ? "Actualizar cuenta" : "Crear cuenta"}
               </button>
@@ -674,19 +651,17 @@ const CapturaMasivaGastos = () => {
                         <p className="text-white font-medium">{cuenta.codigo}</p>
                         <p className="text-xs text-gray-400">Tipo: {cuenta.tipo}</p>
                       </div>
-                      {puedeEditarConfiguracion && (
-                        <button
-                          onClick={() => {
-                            setCuentaGlobalForm({ codigo: cuenta.codigo || "", tipo: cuenta.tipo || "" });
-                            setEditingCuentaId(cuenta.id);
-                            setMensajeGuardado("");
-                            setErrorGuardado("");
-                          }}
-                          className="text-xs text-purple-200 underline"
-                        >
-                          Editar
-                        </button>
-                      )}
+                      <button
+                        onClick={() => {
+                          setCuentaGlobalForm({ codigo: cuenta.codigo || "", tipo: cuenta.tipo || "" });
+                          setEditingCuentaId(cuenta.id);
+                          setMensajeGuardado("");
+                          setErrorGuardado("");
+                        }}
+                        className="text-xs text-purple-200 underline"
+                      >
+                        Editar
+                      </button>
                     </li>
                   ))}
                 </ul>
