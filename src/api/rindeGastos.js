@@ -1,6 +1,31 @@
 // src/api/rindeGastos.js
 
 const API_BASE_URL = 'http://172.17.11.13:8000/api/contabilidad';
+const API_RINDE_GASTOS_BASE_URL = 'http://172.17.11.13:8000/api/rindegastos';
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+};
+
+const fetchRindeGastos = async (endpoint) => {
+  const response = await fetch(`${API_RINDE_GASTOS_BASE_URL}${endpoint}`, {
+    headers: {
+      ...getAuthHeaders(),
+    },
+  });
+
+  if (!response.ok) {
+    let errorText = 'Error consultando servicio RindeGastos';
+    try {
+      const err = await response.json();
+      errorText = err.error || errorText;
+    } catch (_) {}
+    throw new Error(errorText);
+  }
+
+  return response.json();
+};
 
 export const rgLeerHeadersExcel = async (archivo) => {
   const formData = new FormData();
@@ -158,4 +183,24 @@ export const rgDescargarStep1 = async (taskId) => {
   document.body.removeChild(link);
   window.URL.revokeObjectURL(url);
   return true;
+};
+
+export const obtenerRendiciones = async (clienteServicioId) => {
+  const query = clienteServicioId ? `?cliente_servicio=${clienteServicioId}` : '';
+  return fetchRindeGastos(`/rendiciones/${query}`);
+};
+
+export const obtenerCentrosCosto = async (clienteServicioId) => {
+  const query = clienteServicioId ? `?cliente_servicio=${clienteServicioId}` : '';
+  return fetchRindeGastos(`/centros-costo/${query}`);
+};
+
+export const obtenerTiposDocumento = async (clienteServicioId) => {
+  const query = clienteServicioId ? `?cliente_servicio=${clienteServicioId}` : '';
+  return fetchRindeGastos(`/tipos-documento/${query}`);
+};
+
+export const obtenerCuentasGlobales = async (clienteServicioId) => {
+  const query = clienteServicioId ? `?cliente_servicio=${clienteServicioId}` : '';
+  return fetchRindeGastos(`/cuentas-globales/${query}`);
 };
