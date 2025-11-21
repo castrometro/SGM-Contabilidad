@@ -6,12 +6,23 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from api.models import ServicioCliente
-from .models import CentroCosto, CategoriaGasto, ReporteGasto, ItemGasto
+from .models import (
+    CategoriaGasto,
+    CentroCosto,
+    CuentaGlobal,
+    ItemGasto,
+    Rendicion,
+    ReporteGasto,
+    TipoDocumento,
+)
 from .serializers import (
-    CentroCostoSerializer,
     CategoriaGastoSerializer,
-    ReporteGastoSerializer,
+    CentroCostoSerializer,
+    CuentaGlobalSerializer,
     ItemGastoSerializer,
+    RendicionSerializer,
+    ReporteGastoSerializer,
+    TipoDocumentoSerializer,
 )
 
 
@@ -52,9 +63,19 @@ class CentroCostoViewSet(BaseRindeGastosViewSet):
     serializer_class = CentroCostoSerializer
 
 
+class TipoDocumentoViewSet(BaseRindeGastosViewSet):
+    queryset = TipoDocumento.objects.all()
+    serializer_class = TipoDocumentoSerializer
+
+
 class CategoriaGastoViewSet(BaseRindeGastosViewSet):
     queryset = CategoriaGasto.objects.all()
     serializer_class = CategoriaGastoSerializer
+
+
+class CuentaGlobalViewSet(BaseRindeGastosViewSet):
+    queryset = CuentaGlobal.objects.all()
+    serializer_class = CuentaGlobalSerializer
 
 
 class ReporteGastoViewSet(BaseRindeGastosViewSet):
@@ -118,3 +139,8 @@ class ItemGastoViewSet(BaseRindeGastosViewSet):
         reporte = instance.reporte
         super().perform_destroy(instance)
         reporte.recompute_totales()
+
+
+class RendicionViewSet(BaseRindeGastosViewSet):
+    queryset = Rendicion.objects.select_related('cliente_servicio', 'usuario')
+    serializer_class = RendicionSerializer

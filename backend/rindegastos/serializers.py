@@ -2,19 +2,32 @@ from rest_framework import serializers
 
 from api.models import ServicioCliente
 from .models import (
-    CentroCosto,
     CategoriaGasto,
-    ReporteGasto,
-    ItemGasto,
+    CentroCosto,
+    CuentaGlobal,
     EventoRindeGastos,
+    ItemGasto,
+    Rendicion,
+    ReporteGasto,
+    TipoDocumento,
 )
+
+
+class TipoDocumentoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TipoDocumento
+        fields = [
+            'id', 'cliente_servicio', 'codigo', 'nombre',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class CentroCostoSerializer(serializers.ModelSerializer):
     class Meta:
         model = CentroCosto
         fields = [
-            'id', 'cliente_servicio', 'nombre', 'codigo', 'activo',
+            'id', 'cliente_servicio', 'apodo', 'codigo', 'activo',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
@@ -70,3 +83,25 @@ class ReporteGastoSerializer(serializers.ModelSerializer):
         if value.estado != 'activo':
             raise serializers.ValidationError('El servicio del cliente debe estar activo para crear reportes.')
         return value
+
+
+class CuentaGlobalSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CuentaGlobal
+        fields = [
+            'id', 'cliente_servicio', 'codigo', 'tipo',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class RendicionSerializer(serializers.ModelSerializer):
+    usuario_correo = serializers.EmailField(source='usuario.correo_bdo', read_only=True)
+
+    class Meta:
+        model = Rendicion
+        fields = [
+            'id', 'cliente_servicio', 'usuario', 'usuario_correo',
+            'fecha_ejecucion', 'datos_archivo', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'usuario_correo', 'created_at', 'updated_at']
