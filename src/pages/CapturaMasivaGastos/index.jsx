@@ -60,13 +60,17 @@ const StepCard = ({ number, title, subtitle, locked = false, children }) => {
  * Página principal de captura masiva de gastos
  * Refactorizada usando el patrón de feature folders
  */
-const TIPOS_CUENTA_GLOBAL = ["IVA", "GASTO", "Proovedores"];
+const TIPOS_CUENTA_GLOBAL = [
+  { value: "IVA", label: "IVA" },
+  { value: "GASTO", label: "Gasto" },
+  { value: "PROVEEDORES", label: "Proveedores" }
+];
 
 const normalizarTipoCuenta = (tipo = "") => {
   const upper = tipo.toString().trim().toUpperCase();
   if (upper === "IVA") return "IVA";
   if (upper === "GASTO") return "GASTO";
-  if (upper.startsWith("PRO")) return "Proovedores";
+  if (upper.startsWith("PROV")) return "PROVEEDORES";
   return "";
 };
 
@@ -398,7 +402,10 @@ const CapturaMasivaGastos = () => {
     try {
       setGuardando(true);
       setErrorGuardado("");
-      const payload = { codigo: cuentaGlobalForm.codigo, tipo: cuentaGlobalForm.tipo };
+      const payload = {
+        codigo: cuentaGlobalForm.codigo,
+        tipo: normalizarTipoCuenta(cuentaGlobalForm.tipo)
+      };
       if (editingCuentaId) {
         await actualizarCuentaGlobal(editingCuentaId, payload, clienteServicioId);
       } else {
@@ -746,8 +753,8 @@ const CapturaMasivaGastos = () => {
                     Selecciona un tipo
                   </option>
                   {TIPOS_CUENTA_GLOBAL.map((tipo) => (
-                    <option key={tipo} value={tipo}>
-                      {tipo}
+                    <option key={tipo.value} value={tipo.value}>
+                      {tipo.label}
                     </option>
                   ))}
                 </select>
