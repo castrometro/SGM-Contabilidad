@@ -344,7 +344,7 @@ const CapturaMasivaGastos = () => {
         activo: Boolean(centroForm.activo)
       };
       if (editingCentroId) {
-        await actualizarCentroCosto(editingCentroId, payload);
+        await actualizarCentroCosto(editingCentroId, payload, clienteServicioId);
       } else {
         await crearCentroCosto(clienteServicioId, payload);
       }
@@ -367,7 +367,7 @@ const CapturaMasivaGastos = () => {
       setErrorGuardado("");
       const payload = { nombre: tipoDocForm.nombre, codigo: tipoDocForm.codigo };
       if (editingTipoId) {
-        await actualizarTipoDocumento(editingTipoId, payload);
+        await actualizarTipoDocumento(editingTipoId, payload, clienteServicioId);
       } else {
         await crearTipoDocumento(clienteServicioId, payload);
       }
@@ -390,7 +390,7 @@ const CapturaMasivaGastos = () => {
       setErrorGuardado("");
       const payload = { codigo: cuentaGlobalForm.codigo, tipo: cuentaGlobalForm.tipo };
       if (editingCuentaId) {
-        await actualizarCuentaGlobal(editingCuentaId, payload);
+        await actualizarCuentaGlobal(editingCuentaId, payload, clienteServicioId);
       } else {
         await crearCuentaGlobal(clienteServicioId, payload);
       }
@@ -417,7 +417,7 @@ const CapturaMasivaGastos = () => {
       setGuardando(true);
       setMensajeGuardado("");
       setErrorGuardado("");
-      await eliminarCentroCosto(id);
+      await eliminarCentroCosto(id, clienteServicioId);
       if (editingCentroId === id) {
         setCentroForm({ apodo: "", codigo: "", activo: true });
         setEditingCentroId(null);
@@ -444,7 +444,7 @@ const CapturaMasivaGastos = () => {
       setGuardando(true);
       setMensajeGuardado("");
       setErrorGuardado("");
-      await eliminarTipoDocumento(id);
+      await eliminarTipoDocumento(id, clienteServicioId);
       if (editingTipoId === id) {
         setTipoDocForm({ nombre: "", codigo: "" });
         setEditingTipoId(null);
@@ -471,7 +471,7 @@ const CapturaMasivaGastos = () => {
       setGuardando(true);
       setMensajeGuardado("");
       setErrorGuardado("");
-      await eliminarCuentaGlobal(id);
+      await eliminarCuentaGlobal(id, clienteServicioId);
       if (editingCuentaId === id) {
         setCuentaGlobalForm({ codigo: "", tipo: "" });
         setEditingCuentaId(null);
