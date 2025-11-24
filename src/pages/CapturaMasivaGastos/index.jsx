@@ -159,9 +159,7 @@ const CapturaMasivaGastos = () => {
     procesando,
     resultados,
     error,
-    headersExcel,
     centrosCostoDetectados,
-    mapeoCC,
     mostrarMapeoCC,
     cuentasGlobales,
     setCuentasGlobales,
@@ -201,6 +199,7 @@ const CapturaMasivaGastos = () => {
     tipos: { guardando: false, mensaje: "", error: "" },
     cuentas: { guardando: false, mensaje: "", error: "" }
   });
+  const [estadoMapeoCC, setEstadoMapeoCC] = useState({ estado: "idle", faltantes: [], error: "" });
   const [configSection, setConfigSection] = useState("centros");
   
   // Estados para modales y búsqueda
@@ -388,12 +387,19 @@ const CapturaMasivaGastos = () => {
   };
 
   const cargarCentrosCosto = useCallback(async () => {
-    if (!clienteServicioId || servicioNoDisponible) return;
-    const centros = await obtenerCentrosCosto(clienteServicioId);
-    setConfiguracion((prev) => ({
-      ...prev,
-      centrosCosto: Array.isArray(centros) ? centros : []
-    }));
+    if (!clienteServicioId || servicioNoDisponible) return [];
+    try {
+      const centros = await obtenerCentrosCosto(clienteServicioId);
+      const listaCentros = Array.isArray(centros) ? centros : [];
+      setConfiguracion((prev) => ({
+        ...prev,
+        centrosCosto: listaCentros
+      }));
+      return listaCentros;
+    } catch (error) {
+      console.error("Error cargando centros de costo", error);
+      throw error;
+    }
   }, [clienteServicioId, servicioNoDisponible]);
 
   const cargarTiposDocumento = useCallback(async () => {
@@ -443,6 +449,77 @@ const CapturaMasivaGastos = () => {
       cargarConfiguracion();
     }
   }, [activeTab, configuracionCargada, cargarConfiguracion]);
+
+  const mapearCentrosCostoDetectados = useCallback(
+    (centrosDisponibles = []) => {
+      const hayDetecciones = Object.keys(centrosCostoDetectados || {}).length > 0;
+
+      if (!hayDetecciones) {
+        setEstadoMapeoCC({ estado: "sin-detecciones", faltantes: [], error: "" });
+        setMapeoCC({});
+        return;
+      }
+
+      if (!centrosDisponibles.length) {
+        const faltantesDetectados = Object.values(centrosCostoDetectados || {}).map((item) => item?.nombre || "Centro de costo");
+        setEstadoMapeoCC({ estado: "faltantes", faltantes: faltantesDetectados, error: "" });
+        setMapeoCC({});
+        return;
+      }
+
+      const faltantes = [];
+      const mapeoAutomatico = {};
+
+      Object.entries(centrosCostoDetectados).forEach(([key, info]) => {
+        const nombreDetectado = info?.nombre || key;
+        const nombreNormalizado = normalizarNombre(nombreDetectado);
+
+        const coincidencia = centrosDisponibles.find((centro) => {
+          const posiblesNombres = [centro.apodo, centro.nombre, centro.codigo].filter(Boolean);
+          return posiblesNombres.some((valor) => normalizarNombre(valor) === nombreNormalizado);
+        });
+
+        if (coincidencia?.codigo) {
+          mapeoAutomatico[key] = coincidencia.codigo;
+        } else {
+          faltantes.push(nombreDetectado);
+        }
+      });
+
+      setMapeoCC(mapeoAutomatico);
+      setEstadoMapeoCC({ estado: faltantes.length ? "faltantes" : "completo", faltantes, error: "" });
+    },
+    [centrosCostoDetectados, setMapeoCC]
+  );
+
+  useEffect(() => {
+    if (!archivo || servicioNoDisponible) {
+      setEstadoMapeoCC({ estado: "idle", faltantes: [], error: "" });
+      return;
+    }
+
+    if (!clienteServicioId) {
+      setEstadoMapeoCC((prev) => ({ ...prev, estado: "buscando", error: "" }));
+      return;
+    }
+
+    const ejecutarMapeo = async () => {
+      try {
+        setEstadoMapeoCC((prev) => ({ ...prev, estado: "buscando", error: "" }));
+        let centrosDisponibles = configuracion.centrosCosto;
+
+        if (!centrosDisponibles.length) {
+          centrosDisponibles = await cargarCentrosCosto();
+        }
+
+        mapearCentrosCostoDetectados(centrosDisponibles || []);
+      } catch (error) {
+        setEstadoMapeoCC({ estado: "error", faltantes: [], error: error.message || "No se pudo mapear los centros de costo" });
+      }
+    };
+
+    ejecutarMapeo();
+  }, [archivo, clienteServicioId, configuracion.centrosCosto, cargarCentrosCosto, mapearCentrosCostoDetectados, servicioNoDisponible]);
 
   const accionesBackendDeshabilitadas = servicioNoDisponible;
 
@@ -1279,6 +1356,7 @@ const CapturaMasivaGastos = () => {
       setError("Servicio RindeGastos no disponible, contactar con el administrador.");
       return;
     }
+    setEstadoMapeoCC({ estado: "buscando", faltantes: [], error: "" });
     handleArchivoSeleccionado(event);
   };
 
@@ -1287,6 +1365,23 @@ const CapturaMasivaGastos = () => {
       setError("Servicio RindeGastos no disponible, contactar con el administrador.");
       return;
     }
+
+    if (estadoMapeoCC.estado === "faltantes") {
+      const faltantes = estadoMapeoCC.faltantes.join(", ") || "centro de costo faltante";
+      setError(`No se pudo mapear, falta el centro de costo: ${faltantes}`);
+      return;
+    }
+
+    if (estadoMapeoCC.estado === "error") {
+      setError(estadoMapeoCC.error || "No se pudo mapear los centros de costo");
+      return;
+    }
+
+    if (estadoMapeoCC.estado === "buscando") {
+      setError("Esperando finalizar el mapeo automático de centros de costo.");
+      return;
+    }
+
     await procesarArchivo(clienteServicioId);
   };
 
@@ -1296,6 +1391,11 @@ const CapturaMasivaGastos = () => {
       return;
     }
     await descargarArchivo();
+  };
+
+  const limpiarArchivoSeguro = () => {
+    setEstadoMapeoCC({ estado: "idle", faltantes: [], error: "" });
+    limpiarArchivo();
   };
 
   return (
@@ -1350,7 +1450,7 @@ const CapturaMasivaGastos = () => {
                   archivo={archivo}
                   procesando={procesando}
                   onArchivoSeleccionado={handleArchivoSeleccionadoSeguro}
-                  onLimpiarArchivo={limpiarArchivo}
+                  onLimpiarArchivo={limpiarArchivoSeguro}
                   onProcesar={procesarArchivoSeguro}
                   showProcesar={false}
                   showTitle={false}
@@ -1374,10 +1474,8 @@ const CapturaMasivaGastos = () => {
                   <div className="space-y-4">
                     <MapeoCC
                       mostrarMapeoCC={mostrarMapeoCC}
-                      headersExcel={headersExcel}
                       centrosCostoDetectados={centrosCostoDetectados}
-                      mapeoCC={mapeoCC}
-                      setMapeoCC={setMapeoCC}
+                      estadoMapeoCC={estadoMapeoCC}
                     />
 
                     {mostrarMapeoCC && (
