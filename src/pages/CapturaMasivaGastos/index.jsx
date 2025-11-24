@@ -418,12 +418,20 @@ const CapturaMasivaGastos = () => {
   }, [clienteServicioId, servicioNoDisponible]);
 
   const cargarCuentasGlobales = useCallback(async () => {
-    if (!clienteServicioId || servicioNoDisponible) return;
-    const cuentas = await obtenerCuentasGlobales(clienteServicioId);
-    setConfiguracion((prev) => ({
-      ...prev,
-      cuentasGlobales: Array.isArray(cuentas) ? cuentas : []
-    }));
+    if (!clienteServicioId || servicioNoDisponible) return [];
+    try {
+      const cuentas = await obtenerCuentasGlobales(clienteServicioId);
+      const listaCuentas = Array.isArray(cuentas) ? cuentas : [];
+      setConfiguracion((prev) => ({
+        ...prev,
+        cuentasGlobales: listaCuentas
+      }));
+      return listaCuentas;
+    } catch (error) {
+      console.error("Error cargando cuentas globales", error);
+      setErrorConfiguracion((prev) => prev || error.message || "Error cargando cuentas globales");
+      return [];
+    }
   }, [clienteServicioId, servicioNoDisponible]);
 
   const cargarConfiguracion = useCallback(async () => {
@@ -455,6 +463,11 @@ const CapturaMasivaGastos = () => {
       cargarConfiguracion();
     }
   }, [activeTab, configuracionCargada, cargarConfiguracion]);
+
+  useEffect(() => {
+    if (!clienteServicioId || servicioNoDisponible) return;
+    cargarCuentasGlobales();
+  }, [clienteServicioId, servicioNoDisponible, cargarCuentasGlobales]);
 
   const mapearCentrosCostoDetectados = useCallback(
     (centrosDisponibles = []) => {
@@ -1494,6 +1507,7 @@ const CapturaMasivaGastos = () => {
                       <CuentasGlobalesSection
                         cuentasGlobales={cuentasGlobales}
                         setCuentasGlobales={setCuentasGlobales}
+                        cuentasRegistradas={configuracion.cuentasGlobales}
                       />
                     )}
 
