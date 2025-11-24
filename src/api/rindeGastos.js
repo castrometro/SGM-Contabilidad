@@ -8,6 +8,21 @@ const getAuthHeaders = () => {
   return token ? { 'Authorization': `Bearer ${token}` } : {};
 };
 
+const extraerMensajeError = async (response, defaultText) => {
+  let errorText = defaultText;
+  try {
+    const err = await response.json();
+    if (typeof err === 'string') return err;
+    return err.error || err.detail || err.message || errorText;
+  } catch (_) {
+    try {
+      const raw = await response.text();
+      if (raw) return raw;
+    } catch (_) {}
+  }
+  return errorText;
+};
+
 const fetchRindeGastos = async (endpoint) => {
   const response = await fetch(`${API_RINDE_GASTOS_BASE_URL}${endpoint}`, {
     headers: {
@@ -16,11 +31,7 @@ const fetchRindeGastos = async (endpoint) => {
   });
 
   if (!response.ok) {
-    let errorText = 'Error consultando servicio RindeGastos';
-    try {
-      const err = await response.json();
-      errorText = err.error || errorText;
-    } catch (_) {}
+    const errorText = await extraerMensajeError(response, 'Error consultando servicio RindeGastos');
     throw new Error(errorText);
   }
 
@@ -38,11 +49,7 @@ const enviarRindeGastos = async (endpoint, payload, method = 'POST') => {
   });
 
   if (!response.ok) {
-    let errorText = 'Error consultando servicio RindeGastos';
-    try {
-      const err = await response.json();
-      errorText = err.error || errorText;
-    } catch (_) {}
+    const errorText = await extraerMensajeError(response, 'Error consultando servicio RindeGastos');
     throw new Error(errorText);
   }
 

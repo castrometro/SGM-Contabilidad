@@ -60,6 +60,16 @@ const StepCard = ({ number, title, subtitle, locked = false, children }) => {
  * Página principal de captura masiva de gastos
  * Refactorizada usando el patrón de feature folders
  */
+const TIPOS_CUENTA_GLOBAL = ["IVA", "GASTO", "Proovedores"];
+
+const normalizarTipoCuenta = (tipo = "") => {
+  const upper = tipo.toString().trim().toUpperCase();
+  if (upper === "IVA") return "IVA";
+  if (upper === "GASTO") return "GASTO";
+  if (upper.startsWith("PRO")) return "Proovedores";
+  return "";
+};
+
 const CapturaMasivaGastos = () => {
   const { clienteId } = useParams();
   const { usuario } = useAuth();
@@ -725,14 +735,22 @@ const CapturaMasivaGastos = () => {
               </div>
               <div>
                 <label className="block text-xs text-gray-400 mb-1">Tipo</label>
-                <input
+                <select
                   className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
                   value={cuentaGlobalForm.tipo}
                   onChange={(e) => setCuentaGlobalForm({ ...cuentaGlobalForm, tipo: e.target.value })}
                   disabled={guardando}
                   required
-                  placeholder="Ej: gasto, proveedores, iva"
-                />
+                >
+                  <option value="" disabled>
+                    Selecciona un tipo
+                  </option>
+                  {TIPOS_CUENTA_GLOBAL.map((tipo) => (
+                    <option key={tipo} value={tipo}>
+                      {tipo}
+                    </option>
+                  ))}
+                </select>
               </div>
               <button
                 type="submit"
@@ -754,7 +772,10 @@ const CapturaMasivaGastos = () => {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => {
-                            setCuentaGlobalForm({ codigo: cuenta.codigo || "", tipo: cuenta.tipo || "" });
+                            setCuentaGlobalForm({
+                              codigo: cuenta.codigo || "",
+                              tipo: normalizarTipoCuenta(cuenta.tipo)
+                            });
                             setEditingCuentaId(cuenta.id);
                             setMensajeGuardado("");
                             setErrorGuardado("");
