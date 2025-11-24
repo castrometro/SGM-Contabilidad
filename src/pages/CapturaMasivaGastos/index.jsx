@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useCapturaGastos } from "./hooks/useCapturaGastos";
 import { useAuth } from "../../hooks/useAuth";
@@ -34,6 +34,81 @@ const normalizarNombre = (valor = "") => valor.toString().normalize("NFD").repla
 const esServicioRindegastos = (nombre = "") => {
   const nombrePlano = normalizarNombre(nombre);
   return nombrePlano.includes("rindegastos") || nombrePlano.startsWith("rinde");
+};
+
+/**
+ * Modal component for displaying forms and dialogs
+ * @param {boolean} isOpen - Whether the modal is open
+ * @param {function} onClose - Function to call when closing the modal
+ * @param {string} title - Modal title displayed in the header
+ * @param {React.ReactNode} children - Modal content
+ */
+const Modal = ({ isOpen, onClose, title, children }) => {
+  const modalRef = useRef(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const modal = modalRef.current;
+    if (!modal) return;
+
+    // Find all focusable elements within the modal
+    const focusableElements = modal.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+
+    // Focus first element when modal opens
+    firstElement?.focus();
+
+    const handleKeyDown = (e) => {
+      // Handle Escape key
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+
+      // Handle Tab key for focus trap
+      if (e.key === 'Tab') {
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement?.focus();
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement?.focus();
+          }
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+      <div
+        ref={modalRef}
+        className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-4 border-b border-gray-700">
+          <h3 id="modal-title" className="text-lg font-semibold text-white">{title}</h3>
+          <button onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+        </div>
+        <div className="p-4">{children}</div>
+      </div>
+    </div>
+  );
 };
 
 const StepCard = ({ number, title, subtitle, locked = false, children }) => {
@@ -119,9 +194,20 @@ const CapturaMasivaGastos = () => {
   const [editingCentroId, setEditingCentroId] = useState(null);
   const [editingTipoId, setEditingTipoId] = useState(null);
   const [editingCuentaId, setEditingCuentaId] = useState(null);
-  const [guardando, setGuardando] = useState(false);
-  const [mensajeGuardado, setMensajeGuardado] = useState("");
-  const [errorGuardado, setErrorGuardado] = useState("");
+  const [estadoGuardado, setEstadoGuardado] = useState({
+    centros: { guardando: false, mensaje: "", error: "" },
+    tipos: { guardando: false, mensaje: "", error: "" },
+    cuentas: { guardando: false, mensaje: "", error: "" }
+  });
+  const [configSection, setConfigSection] = useState("centros");
+  
+  // Estados para modales y búsqueda
+  const [modalCentroAbierto, setModalCentroAbierto] = useState(false);
+  const [modalTipoAbierto, setModalTipoAbierto] = useState(false);
+  const [modalCuentaAbierto, setModalCuentaAbierto] = useState(false);
+  const [busquedaCentros, setBusquedaCentros] = useState("");
+  const [busquedaTipos, setBusquedaTipos] = useState("");
+  const [busquedaCuentas, setBusquedaCuentas] = useState("");
 
   const { containers, buttons, alerts } = STYLES_CONFIG;
   const { steps } = CAPTURA_CONFIG;
@@ -267,6 +353,47 @@ const CapturaMasivaGastos = () => {
     }
   }, [activeTab, clienteServicioId, historialCargado, servicioNoDisponible]);
 
+  const actualizarEstadoGuardado = (section, updates) => {
+    setEstadoGuardado((prev) => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        ...updates
+      }
+    }));
+  };
+
+  const limpiarMensajes = (section) => {
+    actualizarEstadoGuardado(section, { mensaje: "", error: "" });
+  };
+
+  const cargarCentrosCosto = useCallback(async () => {
+    if (!clienteServicioId || servicioNoDisponible) return;
+    const centros = await obtenerCentrosCosto(clienteServicioId);
+    setConfiguracion((prev) => ({
+      ...prev,
+      centrosCosto: Array.isArray(centros) ? centros : []
+    }));
+  }, [clienteServicioId, servicioNoDisponible]);
+
+  const cargarTiposDocumento = useCallback(async () => {
+    if (!clienteServicioId || servicioNoDisponible) return;
+    const tipos = await obtenerTiposDocumento(clienteServicioId);
+    setConfiguracion((prev) => ({
+      ...prev,
+      tiposDocumento: Array.isArray(tipos) ? tipos : []
+    }));
+  }, [clienteServicioId, servicioNoDisponible]);
+
+  const cargarCuentasGlobales = useCallback(async () => {
+    if (!clienteServicioId || servicioNoDisponible) return;
+    const cuentas = await obtenerCuentasGlobales(clienteServicioId);
+    setConfiguracion((prev) => ({
+      ...prev,
+      cuentasGlobales: Array.isArray(cuentas) ? cuentas : []
+    }));
+  }, [clienteServicioId, servicioNoDisponible]);
+
   const cargarConfiguracion = useCallback(async () => {
     if (!clienteServicioId || servicioNoDisponible) return;
     try {
@@ -361,24 +488,35 @@ const CapturaMasivaGastos = () => {
 
   const puedeEditarConfiguracion = true;
 
-  const resetForms = () => {
-    setCentroForm({ apodo: "", codigo: "", activo: true });
-    setTipoDocForm({ nombre: "", codigo: "" });
-    setCuentaGlobalForm({ codigo: "", tipo: "" });
-    setEditingCentroId(null);
-    setEditingTipoId(null);
-    setEditingCuentaId(null);
+  const resetForms = (section = null) => {
+    if (!section || section === "centros") {
+      setCentroForm({ apodo: "", codigo: "", activo: true });
+      setEditingCentroId(null);
+      limpiarMensajes("centros");
+    }
+    if (!section || section === "tipos") {
+      setTipoDocForm({ nombre: "", codigo: "" });
+      setEditingTipoId(null);
+      limpiarMensajes("tipos");
+    }
+    if (!section || section === "cuentas") {
+      setCuentaGlobalForm({ codigo: "", tipo: "" });
+      setEditingCuentaId(null);
+      limpiarMensajes("cuentas");
+    }
   };
 
   const handleGuardarCentro = async (e) => {
     e.preventDefault();
     if (!clienteServicioId || accionesBackendDeshabilitadas) {
-      setErrorGuardado("Servicio RindeGastos no disponible, contactar con el administrador.");
+      actualizarEstadoGuardado("centros", {
+        error: "Servicio RindeGastos no disponible, contactar con el administrador.",
+        mensaje: ""
+      });
       return;
     }
     try {
-      setGuardando(true);
-      setErrorGuardado("");
+      actualizarEstadoGuardado("centros", { guardando: true, error: "", mensaje: "" });
       const payload = {
         apodo: centroForm.apodo,
         codigo: centroForm.codigo,
@@ -389,52 +527,62 @@ const CapturaMasivaGastos = () => {
       } else {
         await crearCentroCosto(clienteServicioId, payload);
       }
-      setMensajeGuardado("Centro de costo guardado correctamente");
-      resetForms();
-      cargarConfiguracion();
+      actualizarEstadoGuardado("centros", { mensaje: "Centro de costo guardado correctamente" });
+      resetForms("centros");
+      await cargarCentrosCosto();
+      cerrarModales();
     } catch (error) {
       console.error("Error guardando centro de costo", error);
-      setErrorGuardado(error.message || "No se pudo guardar el centro de costo");
+      actualizarEstadoGuardado("centros", {
+        error: error.message || "No se pudo guardar el centro de costo"
+      });
     } finally {
-      setGuardando(false);
+      actualizarEstadoGuardado("centros", { guardando: false });
     }
   };
 
   const handleGuardarTipo = async (e) => {
     e.preventDefault();
     if (!clienteServicioId || accionesBackendDeshabilitadas) {
-      setErrorGuardado("Servicio RindeGastos no disponible, contactar con el administrador.");
+      actualizarEstadoGuardado("tipos", {
+        error: "Servicio RindeGastos no disponible, contactar con el administrador.",
+        mensaje: ""
+      });
       return;
     }
     try {
-      setGuardando(true);
-      setErrorGuardado("");
+      actualizarEstadoGuardado("tipos", { guardando: true, error: "", mensaje: "" });
       const payload = { nombre: tipoDocForm.nombre, codigo: tipoDocForm.codigo };
       if (editingTipoId) {
         await actualizarTipoDocumento(editingTipoId, payload, clienteServicioId);
       } else {
         await crearTipoDocumento(clienteServicioId, payload);
       }
-      setMensajeGuardado("Tipo de documento guardado");
-      resetForms();
-      cargarConfiguracion();
+      actualizarEstadoGuardado("tipos", { mensaje: "Tipo de documento guardado" });
+      resetForms("tipos");
+      await cargarTiposDocumento();
+      cerrarModales();
     } catch (error) {
       console.error("Error guardando tipo de documento", error);
-      setErrorGuardado(error.message || "No se pudo guardar el tipo de documento");
+      actualizarEstadoGuardado("tipos", {
+        error: error.message || "No se pudo guardar el tipo de documento"
+      });
     } finally {
-      setGuardando(false);
+      actualizarEstadoGuardado("tipos", { guardando: false });
     }
   };
 
   const handleGuardarCuenta = async (e) => {
     e.preventDefault();
     if (!clienteServicioId || accionesBackendDeshabilitadas) {
-      setErrorGuardado("Servicio RindeGastos no disponible, contactar con el administrador.");
+      actualizarEstadoGuardado("cuentas", {
+        error: "Servicio RindeGastos no disponible, contactar con el administrador.",
+        mensaje: ""
+      });
       return;
     }
     try {
-      setGuardando(true);
-      setErrorGuardado("");
+      actualizarEstadoGuardado("cuentas", { guardando: true, error: "", mensaje: "" });
       const payload = {
         codigo: cuentaGlobalForm.codigo,
         tipo: cuentaGlobalForm.tipo
@@ -444,14 +592,17 @@ const CapturaMasivaGastos = () => {
       } else {
         await crearCuentaGlobal(clienteServicioId, payload);
       }
-      setMensajeGuardado("Cuenta global guardada");
-      resetForms();
-      cargarConfiguracion();
+      actualizarEstadoGuardado("cuentas", { mensaje: "Cuenta global guardada" });
+      resetForms("cuentas");
+      await cargarCuentasGlobales();
+      cerrarModales();
     } catch (error) {
       console.error("Error guardando cuenta global", error);
-      setErrorGuardado(error.message || "No se pudo guardar la cuenta global");
+      actualizarEstadoGuardado("cuentas", {
+        error: error.message || "No se pudo guardar la cuenta global"
+      });
     } finally {
-      setGuardando(false);
+      actualizarEstadoGuardado("cuentas", { guardando: false });
     }
   };
 
@@ -464,21 +615,21 @@ const CapturaMasivaGastos = () => {
     if (!confirmDelete) return;
 
     try {
-      setGuardando(true);
-      setMensajeGuardado("");
-      setErrorGuardado("");
+      actualizarEstadoGuardado("centros", { guardando: true, mensaje: "", error: "" });
       await eliminarCentroCosto(id, clienteServicioId);
       if (editingCentroId === id) {
         setCentroForm({ apodo: "", codigo: "", activo: true });
         setEditingCentroId(null);
       }
-      setMensajeGuardado("Centro de costo eliminado correctamente");
-      await cargarConfiguracion();
+      actualizarEstadoGuardado("centros", { mensaje: "Centro de costo eliminado correctamente" });
+      await cargarCentrosCosto();
     } catch (error) {
       console.error("Error eliminando centro de costo", error);
-      setErrorGuardado(error.message || "No se pudo eliminar el centro de costo");
+      actualizarEstadoGuardado("centros", {
+        error: error.message || "No se pudo eliminar el centro de costo"
+      });
     } finally {
-      setGuardando(false);
+      actualizarEstadoGuardado("centros", { guardando: false });
     }
   };
 
@@ -491,21 +642,21 @@ const CapturaMasivaGastos = () => {
     if (!confirmDelete) return;
 
     try {
-      setGuardando(true);
-      setMensajeGuardado("");
-      setErrorGuardado("");
+      actualizarEstadoGuardado("tipos", { guardando: true, mensaje: "", error: "" });
       await eliminarTipoDocumento(id, clienteServicioId);
       if (editingTipoId === id) {
         setTipoDocForm({ nombre: "", codigo: "" });
         setEditingTipoId(null);
       }
-      setMensajeGuardado("Tipo de documento eliminado correctamente");
-      await cargarConfiguracion();
+      actualizarEstadoGuardado("tipos", { mensaje: "Tipo de documento eliminado correctamente" });
+      await cargarTiposDocumento();
     } catch (error) {
       console.error("Error eliminando tipo de documento", error);
-      setErrorGuardado(error.message || "No se pudo eliminar el tipo de documento");
+      actualizarEstadoGuardado("tipos", {
+        error: error.message || "No se pudo eliminar el tipo de documento"
+      });
     } finally {
-      setGuardando(false);
+      actualizarEstadoGuardado("tipos", { guardando: false });
     }
   };
 
@@ -518,25 +669,74 @@ const CapturaMasivaGastos = () => {
     if (!confirmDelete) return;
 
     try {
-      setGuardando(true);
-      setMensajeGuardado("");
-      setErrorGuardado("");
+      actualizarEstadoGuardado("cuentas", { guardando: true, mensaje: "", error: "" });
       await eliminarCuentaGlobal(id, clienteServicioId);
       if (editingCuentaId === id) {
         setCuentaGlobalForm({ codigo: "", tipo: "" });
         setEditingCuentaId(null);
       }
-      setMensajeGuardado("Cuenta global eliminada correctamente");
-      await cargarConfiguracion();
+      actualizarEstadoGuardado("cuentas", { mensaje: "Cuenta global eliminada correctamente" });
+      await cargarCuentasGlobales();
     } catch (error) {
       console.error("Error eliminando cuenta global", error);
-      setErrorGuardado(error.message || "No se pudo eliminar la cuenta global");
+      actualizarEstadoGuardado("cuentas", {
+        error: error.message || "No se pudo eliminar la cuenta global"
+      });
     } finally {
-      setGuardando(false);
+      actualizarEstadoGuardado("cuentas", { guardando: false });
     }
   };
 
+  const abrirModalCentro = (centro = null) => {
+    if (centro) {
+      setCentroForm({ apodo: centro.apodo || "", codigo: centro.codigo || "", activo: centro.activo });
+      setEditingCentroId(centro.id);
+    } else {
+      setCentroForm({ apodo: "", codigo: "", activo: true });
+      setEditingCentroId(null);
+    }
+    limpiarMensajes("centros");
+    setModalCentroAbierto(true);
+  };
+
+  const abrirModalTipo = (tipo = null) => {
+    if (tipo) {
+      setTipoDocForm({ nombre: tipo.nombre || "", codigo: tipo.codigo || "" });
+      setEditingTipoId(tipo.id);
+    } else {
+      setTipoDocForm({ nombre: "", codigo: "" });
+      setEditingTipoId(null);
+    }
+    limpiarMensajes("tipos");
+    setModalTipoAbierto(true);
+  };
+
+  const abrirModalCuenta = (cuenta = null) => {
+    if (cuenta) {
+      setCuentaGlobalForm({ codigo: cuenta.codigo || "", tipo: cuenta.tipo });
+      setEditingCuentaId(cuenta.id);
+    } else {
+      setCuentaGlobalForm({ codigo: "", tipo: "" });
+      setEditingCuentaId(null);
+    }
+    limpiarMensajes("cuentas");
+    setModalCuentaAbierto(true);
+  };
+
+  const cerrarModales = () => {
+    setModalCentroAbierto(false);
+    setModalTipoAbierto(false);
+    setModalCuentaAbierto(false);
+    setEditingCentroId(null);
+    setEditingTipoId(null);
+    setEditingCuentaId(null);
+  };
+
   const renderConfiguraciones = () => {
+    const guardandoCentros = estadoGuardado.centros.guardando;
+    const guardandoTipos = estadoGuardado.tipos.guardando;
+    const guardandoCuentas = estadoGuardado.cuentas.guardando;
+
     if (cargandoServicio || cargandoConfiguracion) {
       return <div className="text-gray-200">Cargando configuraciones...</div>;
     }
@@ -563,284 +763,458 @@ const CapturaMasivaGastos = () => {
 
     const { centrosCosto, tiposDocumento, cuentasGlobales } = configuracion;
 
+    // Filtrar datos según búsqueda
+    const centrosFiltrados = centrosCosto.filter((c) =>
+      c.apodo?.toLowerCase().includes(busquedaCentros.toLowerCase()) ||
+      c.codigo?.toLowerCase().includes(busquedaCentros.toLowerCase())
+    );
+
+    const tiposFiltrados = tiposDocumento.filter((t) =>
+      t.nombre?.toLowerCase().includes(busquedaTipos.toLowerCase()) ||
+      t.codigo?.toLowerCase().includes(busquedaTipos.toLowerCase())
+    );
+
+    const cuentasFiltradas = cuentasGlobales.filter((c) =>
+      c.codigo?.toLowerCase().includes(busquedaCuentas.toLowerCase()) ||
+      c.tipo?.toLowerCase().includes(busquedaCuentas.toLowerCase())
+    );
+
+    const seccionesConfiguracion = {
+      centros: {
+        label: "Centros de costo",
+        description: "Define los centros que usas para imputar los gastos."
+      },
+      tipos: {
+        label: "Tipos de documento",
+        description: "Administra los documentos válidos para rendir."
+      },
+      cuentas: {
+        label: "Cuentas globales",
+        description: "Mantén las cuentas contables disponibles."
+      }
+    };
+
+    const renderMensajesSeccion = (sectionKey) => {
+      const { mensaje, error } = estadoGuardado[sectionKey];
+
+      return (
+        <>
+          {mensaje && (
+            <div className="bg-emerald-900/30 border border-emerald-700 text-emerald-100 rounded-md px-4 py-3 text-sm mb-3">
+              {mensaje}
+            </div>
+          )}
+          {error && <div className="mb-3"><ErrorSection error={error} /></div>}
+        </>
+      );
+    };
+
+    const renderSeccionActual = () => {
+      if (configSection === "centros") {
+        return (
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-4">
+            {renderMensajesSeccion("centros")}
+            
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <label htmlFor="busqueda-centros" className="sr-only">
+                Buscar centros de costo
+              </label>
+              <input
+                id="busqueda-centros"
+                type="text"
+                placeholder="Buscar por nombre o código..."
+                value={busquedaCentros}
+                onChange={(e) => setBusquedaCentros(e.target.value)}
+                className="flex-1 min-w-[200px] bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100 placeholder-gray-500"
+              />
+              <button
+                onClick={() => abrirModalCentro()}
+                className={`${buttons.primary} text-sm px-4 py-2`}
+              >
+                + Crear Centro
+              </button>
+            </div>
+
+            {centrosFiltrados.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="text-xs uppercase bg-gray-900/60 text-gray-400">
+                    <tr>
+                      <th className="px-4 py-3">Nombre</th>
+                      <th className="px-4 py-3">Código</th>
+                      <th className="px-4 py-3">Activo</th>
+                      <th className="px-4 py-3">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {centrosFiltrados.map((cc) => (
+                      <tr key={cc.id} className="border-b border-gray-700 hover:bg-gray-900/40">
+                        <td className="px-4 py-3 text-white font-medium">{cc.apodo}</td>
+                        <td className="px-4 py-3 text-gray-300">{cc.codigo || "-"}</td>
+                        <td className="px-4 py-3">
+                          <span className={`text-xs px-2 py-1 rounded ${cc.activo ? "bg-emerald-500/10 text-emerald-200" : "bg-gray-700 text-gray-300"}`}>
+                            {cc.activo ? "Sí" : "No"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => abrirModalCentro(cc)}
+                              className="text-xs text-emerald-300 hover:text-emerald-200 underline"
+                              disabled={guardandoCentros}
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => handleEliminarCentro(cc.id)}
+                              className="text-xs text-red-300 hover:text-red-200 underline"
+                              disabled={guardandoCentros}
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-gray-400 text-sm text-center py-4">
+                {busquedaCentros ? "No se encontraron centros de costo con ese criterio" : "No hay centros de costo configurados"}
+              </p>
+            )}
+          </div>
+        );
+      }
+
+      if (configSection === "tipos") {
+        return (
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-4">
+            {renderMensajesSeccion("tipos")}
+            
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <label htmlFor="busqueda-tipos" className="sr-only">
+                Buscar tipos de documento
+              </label>
+              <input
+                id="busqueda-tipos"
+                type="text"
+                placeholder="Buscar por nombre o código..."
+                value={busquedaTipos}
+                onChange={(e) => setBusquedaTipos(e.target.value)}
+                className="flex-1 min-w-[200px] bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100 placeholder-gray-500"
+              />
+              <button
+                onClick={() => abrirModalTipo()}
+                className={`${buttons.primary} text-sm px-4 py-2`}
+              >
+                + Crear Tipo
+              </button>
+            </div>
+
+            {tiposFiltrados.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="text-xs uppercase bg-gray-900/60 text-gray-400">
+                    <tr>
+                      <th className="px-4 py-3">Nombre</th>
+                      <th className="px-4 py-3">Código</th>
+                      <th className="px-4 py-3">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tiposFiltrados.map((doc) => (
+                      <tr key={doc.id} className="border-b border-gray-700 hover:bg-gray-900/40">
+                        <td className="px-4 py-3 text-white font-medium">{doc.nombre}</td>
+                        <td className="px-4 py-3 text-gray-300">{doc.codigo}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => abrirModalTipo(doc)}
+                              className="text-xs text-blue-300 hover:text-blue-200 underline"
+                              disabled={guardandoTipos}
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => handleEliminarTipo(doc.id)}
+                              className="text-xs text-red-300 hover:text-red-200 underline"
+                              disabled={guardandoTipos}
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-gray-400 text-sm text-center py-4">
+                {busquedaTipos ? "No se encontraron tipos de documento con ese criterio" : "No hay tipos de documento registrados"}
+              </p>
+            )}
+          </div>
+        );
+      }
+
+      return (
+        <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-4">
+          {renderMensajesSeccion("cuentas")}
+          
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <label htmlFor="busqueda-cuentas" className="sr-only">
+              Buscar cuentas globales
+            </label>
+            <input
+              id="busqueda-cuentas"
+              type="text"
+              placeholder="Buscar por código o tipo..."
+              value={busquedaCuentas}
+              onChange={(e) => setBusquedaCuentas(e.target.value)}
+              className="flex-1 min-w-[200px] bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100 placeholder-gray-500"
+            />
+            <button
+              onClick={() => abrirModalCuenta()}
+              className={`${buttons.primary} text-sm px-4 py-2`}
+            >
+              + Crear Cuenta
+            </button>
+          </div>
+
+          {cuentasFiltradas.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="text-xs uppercase bg-gray-900/60 text-gray-400">
+                  <tr>
+                    <th className="px-4 py-3">Código</th>
+                    <th className="px-4 py-3">Tipo</th>
+                    <th className="px-4 py-3">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cuentasFiltradas.map((cuenta) => (
+                    <tr key={cuenta.id} className="border-b border-gray-700 hover:bg-gray-900/40">
+                      <td className="px-4 py-3 text-white font-medium">{cuenta.codigo}</td>
+                      <td className="px-4 py-3 text-gray-300">{cuenta.tipo}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => abrirModalCuenta(cuenta)}
+                            className="text-xs text-purple-300 hover:text-purple-200 underline"
+                            disabled={guardandoCuentas}
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => handleEliminarCuenta(cuenta.id)}
+                            className="text-xs text-red-300 hover:text-red-200 underline"
+                            disabled={guardandoCuentas}
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-gray-400 text-sm text-center py-4">
+              {busquedaCuentas ? "No se encontraron cuentas globales con ese criterio" : "No hay cuentas globales definidas"}
+            </p>
+          )}
+        </div>
+      );
+    };
+
     return (
       <div className="space-y-4">
-        <div className="bg-gray-900/40 border border-gray-800 rounded-lg p-4 text-sm text-gray-200 flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">⚙️</span>
+        <div className="bg-gray-900/40 border border-gray-800 rounded-lg p-3 flex flex-wrap gap-3">
+          {Object.entries(seccionesConfiguracion).map(([key, data]) => (
+            <button
+              key={key}
+              onClick={() => setConfigSection(key)}
+              className={`max-w-xs min-w-[200px] text-left px-4 py-3 rounded-md border transition ${
+                configSection === key
+                  ? "bg-emerald-600/20 border-emerald-500 text-white"
+                  : "bg-gray-900/60 border-gray-800 text-gray-300 hover:border-emerald-700/40"
+              }`}
+              type="button"
+            >
+              <div>
+                <p className="text-sm font-semibold">{data.label}</p>
+                <p className="text-xs text-gray-400">{data.description}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {renderSeccionActual()}
+
+        {/* Modales */}
+        <Modal
+          isOpen={modalCentroAbierto}
+          onClose={() => { cerrarModales(); resetForms("centros"); }}
+          title={editingCentroId ? "Editar Centro de Costo" : "Crear Centro de Costo"}
+        >
+          <form className="space-y-4" onSubmit={handleGuardarCentro}>
             <div>
-              <p className="text-white font-semibold">Configuración de RindeGastos</p>
-              <p className="text-gray-400">Puedes crear y editar las configuraciones del servicio.</p>
+              <label className="block text-xs text-gray-400 mb-1">Nombre / apodo</label>
+              <input
+                className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
+                value={centroForm.apodo}
+                onChange={(e) => setCentroForm({ ...centroForm, apodo: e.target.value })}
+                disabled={guardandoCentros}
+                required
+                autoFocus
+              />
             </div>
-          </div>
-        </div>
-
-        {mensajeGuardado && (
-          <div className="bg-emerald-900/30 border border-emerald-700 text-emerald-100 rounded-md px-4 py-3 text-sm">
-            {mensajeGuardado}
-          </div>
-        )}
-        {errorGuardado && <ErrorSection error={errorGuardado} />}
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-white font-semibold">Centros de costo</h3>
-              {editingCentroId && (
-                <button
-                  onClick={resetForms}
-                  className="text-xs text-gray-300 underline"
-                  type="button"
-                >
-                  Cancelar edición
-                </button>
-              )}
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Código</label>
+              <input
+                className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
+                value={centroForm.codigo}
+                onChange={(e) => setCentroForm({ ...centroForm, codigo: e.target.value })}
+                disabled={guardandoCentros}
+                placeholder="Ej: CC-001"
+              />
             </div>
-            <form className="space-y-3" onSubmit={handleGuardarCentro}>
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Nombre / apodo</label>
-                <input
-                  className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
-                  value={centroForm.apodo}
-                  onChange={(e) => setCentroForm({ ...centroForm, apodo: e.target.value })}
-                  disabled={guardando}
-                  required
-                />
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="flex-1">
-                  <label className="block text-xs text-gray-400 mb-1">Código</label>
-                  <input
-                    className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
-                    value={centroForm.codigo}
-                    onChange={(e) => setCentroForm({ ...centroForm, codigo: e.target.value })}
-                    disabled={guardando}
-                    placeholder="Ej: CC-001"
-                  />
-                </div>
-                <label className="flex items-center gap-2 text-sm text-gray-300">
-                  <input
-                    type="checkbox"
-                    checked={centroForm.activo}
-                    onChange={(e) => setCentroForm({ ...centroForm, activo: e.target.checked })}
-                    disabled={guardando}
-                  />
-                  Activo
-                </label>
-              </div>
+            <label className="flex items-center gap-2 text-sm text-gray-300">
+              <input
+                type="checkbox"
+                checked={centroForm.activo}
+                onChange={(e) => setCentroForm({ ...centroForm, activo: e.target.checked })}
+                disabled={guardandoCentros}
+                className="h-4 w-4 text-emerald-500"
+              />
+              Activo
+            </label>
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => { cerrarModales(); resetForms("centros"); }}
+                className="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-gray-200 rounded"
+                disabled={guardandoCentros}
+              >
+                Cancelar
+              </button>
               <button
                 type="submit"
-                disabled={guardando}
-                className={`w-full ${buttons.primary} ${(guardando) ? buttons.disabled : ""}`}
+                disabled={guardandoCentros}
+                className={`px-4 py-2 text-sm ${buttons.primary} ${guardandoCentros ? buttons.disabled : ""}`}
               >
-                {guardando && editingCentroId ? "Actualizando..." : guardando ? "Guardando..." : editingCentroId ? "Actualizar centro" : "Crear centro"}
+                {guardandoCentros ? "Guardando..." : editingCentroId ? "Actualizar" : "Crear"}
               </button>
-            </form>
-            <div className="border-t border-gray-700 pt-3">
-              {centrosCosto.length ? (
-                <ul className="space-y-2 text-sm text-gray-200 max-h-64 overflow-auto">
-                  {centrosCosto.map((cc) => (
-                    <li key={cc.id} className="flex items-center justify-between gap-2 border border-gray-700/60 rounded px-3 py-2">
-                      <div>
-                        <p className="text-white font-medium">{cc.apodo}</p>
-                        <p className="text-xs text-gray-400">Código: {cc.codigo || "Sin código"}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs px-2 py-0.5 rounded ${cc.activo ? "bg-emerald-500/10 text-emerald-200" : "bg-gray-700 text-gray-300"}`}>
-                          {cc.activo ? "Activo" : "Inactivo"}
-                        </span>
-                        <button
-                          onClick={() => {
-                            setCentroForm({ apodo: cc.apodo || "", codigo: cc.codigo || "", activo: cc.activo });
-                            setEditingCentroId(cc.id);
-                            setMensajeGuardado("");
-                            setErrorGuardado("");
-                          }}
-                          className="text-xs text-emerald-200 underline"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          onClick={() => handleEliminarCentro(cc.id)}
-                          className="text-xs text-red-200 underline"
-                          disabled={guardando}
-                        >
-                          Eliminar
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-gray-400 text-sm">No hay centros de costo configurados.</p>
-              )}
             </div>
-          </div>
+          </form>
+        </Modal>
 
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-white font-semibold">Tipos de documento</h3>
-              {editingTipoId && (
-                <button onClick={resetForms} className="text-xs text-gray-300 underline" type="button">
-                  Cancelar edición
-                </button>
-              )}
+        <Modal
+          isOpen={modalTipoAbierto}
+          onClose={() => { cerrarModales(); resetForms("tipos"); }}
+          title={editingTipoId ? "Editar Tipo de Documento" : "Crear Tipo de Documento"}
+        >
+          <form className="space-y-4" onSubmit={handleGuardarTipo}>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Nombre</label>
+              <input
+                className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
+                value={tipoDocForm.nombre}
+                onChange={(e) => setTipoDocForm({ ...tipoDocForm, nombre: e.target.value })}
+                disabled={guardandoTipos}
+                required
+                autoFocus
+              />
             </div>
-            <form className="space-y-3" onSubmit={handleGuardarTipo}>
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Nombre</label>
-                <input
-                  className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
-                  value={tipoDocForm.nombre}
-                  onChange={(e) => setTipoDocForm({ ...tipoDocForm, nombre: e.target.value })}
-                  disabled={guardando}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Código</label>
-                <input
-                  className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
-                  value={tipoDocForm.codigo}
-                  onChange={(e) => setTipoDocForm({ ...tipoDocForm, codigo: e.target.value })}
-                  disabled={guardando}
-                  required
-                />
-              </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Código</label>
+              <input
+                className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
+                value={tipoDocForm.codigo}
+                onChange={(e) => setTipoDocForm({ ...tipoDocForm, codigo: e.target.value })}
+                disabled={guardandoTipos}
+                required
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => { cerrarModales(); resetForms("tipos"); }}
+                className="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-gray-200 rounded"
+                disabled={guardandoTipos}
+              >
+                Cancelar
+              </button>
               <button
                 type="submit"
-                disabled={guardando}
-                className={`w-full ${buttons.primary} ${(guardando) ? buttons.disabled : ""}`}
+                disabled={guardandoTipos}
+                className={`px-4 py-2 text-sm ${buttons.primary} ${guardandoTipos ? buttons.disabled : ""}`}
               >
-                {guardando && editingTipoId ? "Actualizando..." : guardando ? "Guardando..." : editingTipoId ? "Actualizar tipo" : "Crear tipo"}
+                {guardandoTipos ? "Guardando..." : editingTipoId ? "Actualizar" : "Crear"}
               </button>
-            </form>
-            <div className="border-t border-gray-700 pt-3">
-              {tiposDocumento.length ? (
-                <ul className="space-y-2 text-sm text-gray-200 max-h-64 overflow-auto">
-                  {tiposDocumento.map((doc) => (
-                    <li key={doc.id} className="flex items-center justify-between gap-2 border border-gray-700/60 rounded px-3 py-2">
-                      <div>
-                        <p className="text-white font-medium">{doc.nombre}</p>
-                        <p className="text-xs text-gray-400">Código: {doc.codigo}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            setTipoDocForm({ nombre: doc.nombre || "", codigo: doc.codigo || "" });
-                            setEditingTipoId(doc.id);
-                            setMensajeGuardado("");
-                            setErrorGuardado("");
-                          }}
-                          className="text-xs text-blue-200 underline"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          onClick={() => handleEliminarTipo(doc.id)}
-                          className="text-xs text-red-200 underline"
-                          disabled={guardando}
-                        >
-                          Eliminar
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-gray-400 text-sm">No hay tipos de documento registrados.</p>
-              )}
             </div>
-          </div>
+          </form>
+        </Modal>
 
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-white font-semibold">Cuentas globales</h3>
-              {editingCuentaId && (
-                <button onClick={resetForms} className="text-xs text-gray-300 underline" type="button">
-                  Cancelar edición
-                </button>
-              )}
+        <Modal
+          isOpen={modalCuentaAbierto}
+          onClose={() => { cerrarModales(); resetForms("cuentas"); }}
+          title={editingCuentaId ? "Editar Cuenta Global" : "Crear Cuenta Global"}
+        >
+          <form className="space-y-4" onSubmit={handleGuardarCuenta}>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Código</label>
+              <input
+                className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
+                value={cuentaGlobalForm.codigo}
+                onChange={(e) => setCuentaGlobalForm({ ...cuentaGlobalForm, codigo: e.target.value })}
+                disabled={guardandoCuentas}
+                required
+                autoFocus
+              />
             </div>
-            <form className="space-y-3" onSubmit={handleGuardarCuenta}>
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Código</label>
-                <input
-                  className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
-                  value={cuentaGlobalForm.codigo}
-                  onChange={(e) => setCuentaGlobalForm({ ...cuentaGlobalForm, codigo: e.target.value })}
-                  disabled={guardando}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Tipo</label>
-                <select
-                  className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
-                  value={cuentaGlobalForm.tipo}
-                  onChange={(e) => setCuentaGlobalForm({ ...cuentaGlobalForm, tipo: e.target.value })}
-                  disabled={guardando}
-                  required
-                >
-                  <option value="" disabled>
-                    Selecciona un tipo
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Tipo</label>
+              <select
+                className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
+                value={cuentaGlobalForm.tipo}
+                onChange={(e) => setCuentaGlobalForm({ ...cuentaGlobalForm, tipo: e.target.value })}
+                disabled={guardandoCuentas}
+                required
+              >
+                <option value="" disabled>
+                  Selecciona un tipo
+                </option>
+                {TIPOS_CUENTA_GLOBAL.map((tipo) => (
+                  <option key={tipo.value} value={tipo.value}>
+                    {tipo.label}
                   </option>
-                  {TIPOS_CUENTA_GLOBAL.map((tipo) => (
-                    <option key={tipo.value} value={tipo.value}>
-                      {tipo.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => { cerrarModales(); resetForms("cuentas"); }}
+                className="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 text-gray-200 rounded"
+                disabled={guardandoCuentas}
+              >
+                Cancelar
+              </button>
               <button
                 type="submit"
-                disabled={guardando}
-                className={`w-full ${buttons.primary} ${(guardando) ? buttons.disabled : ""}`}
+                disabled={guardandoCuentas}
+                className={`px-4 py-2 text-sm ${buttons.primary} ${guardandoCuentas ? buttons.disabled : ""}`}
               >
-                {guardando && editingCuentaId ? "Actualizando..." : guardando ? "Guardando..." : editingCuentaId ? "Actualizar cuenta" : "Crear cuenta"}
+                {guardandoCuentas ? "Guardando..." : editingCuentaId ? "Actualizar" : "Crear"}
               </button>
-            </form>
-            <div className="border-t border-gray-700 pt-3">
-              {cuentasGlobales.length ? (
-                <ul className="space-y-2 text-sm text-gray-200 max-h-64 overflow-auto">
-                  {cuentasGlobales.map((cuenta) => (
-                    <li key={cuenta.id} className="flex items-center justify-between gap-2 border border-gray-700/60 rounded px-3 py-2">
-                      <div>
-                        <p className="text-white font-medium">{cuenta.codigo}</p>
-                        <p className="text-xs text-gray-400">Tipo: {cuenta.tipo}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            setCuentaGlobalForm({
-                              codigo: cuenta.codigo || "",
-                              tipo: cuenta.tipo
-                            });
-                            setEditingCuentaId(cuenta.id);
-                            setMensajeGuardado("");
-                            setErrorGuardado("");
-                          }}
-                          className="text-xs text-purple-200 underline"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          onClick={() => handleEliminarCuenta(cuenta.id)}
-                          className="text-xs text-red-200 underline"
-                          disabled={guardando}
-                        >
-                          Eliminar
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-gray-400 text-sm">No hay cuentas globales definidas.</p>
-              )}
             </div>
-          </div>
-        </div>
+          </form>
+        </Modal>
       </div>
     );
   };
