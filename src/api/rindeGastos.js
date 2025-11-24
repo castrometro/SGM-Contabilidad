@@ -34,7 +34,7 @@ const enviarRindeGastos = async (endpoint, payload, method = 'POST') => {
       'Content-Type': 'application/json',
       ...getAuthHeaders(),
     },
-    body: JSON.stringify(payload || {}),
+    body: payload === null || typeof payload === 'undefined' ? undefined : JSON.stringify(payload)
   });
 
   if (!response.ok) {
@@ -46,7 +46,16 @@ const enviarRindeGastos = async (endpoint, payload, method = 'POST') => {
     throw new Error(errorText);
   }
 
-  return response.json();
+  const raw = await response.text();
+
+  if (!raw) return {};
+
+  try {
+    return JSON.parse(raw);
+  } catch (parseError) {
+    console.warn('[RG API] Respuesta no JSON, devolviendo texto plano', parseError);
+    return raw;
+  }
 };
 
 export const rgLeerHeadersExcel = async (archivo) => {
