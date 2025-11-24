@@ -27,6 +27,30 @@ const fetchRindeGastos = async (endpoint) => {
   return response.json();
 };
 
+export const checkRindeGastosSalud = async () => {
+  try {
+    const response = await fetch(`${API_RINDE_GASTOS_BASE_URL}/health/`, {
+      headers: {
+        ...getAuthHeaders(),
+      },
+    });
+
+    if (!response.ok) {
+      let errorText = 'Error verificando salud de RindeGastos';
+      try {
+        const err = await response.json();
+        errorText = err.error || errorText;
+      } catch (_) {}
+      throw new Error(errorText);
+    }
+
+    return response.json();
+  } catch (error) {
+    const mensaje = error?.message ? `Servicio RindeGastos no disponible: ${error.message}` : 'Servicio RindeGastos no disponible';
+    throw new Error(mensaje);
+  }
+};
+
 const enviarRindeGastos = async (endpoint, payload, method = 'POST') => {
   const response = await fetch(`${API_RINDE_GASTOS_BASE_URL}${endpoint}`, {
     method,
