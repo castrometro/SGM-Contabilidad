@@ -1,6 +1,8 @@
 from django.db.models import QuerySet
-from rest_framework import viewsets
+from rest_framework import status, viewsets
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 from api.models import ServicioCliente
 from .models import CentroCosto, CuentaGlobal, Rendicion, TipoDocumento
@@ -62,3 +64,17 @@ class CuentaGlobalViewSet(BaseRindeGastosViewSet):
 class RendicionViewSet(BaseRindeGastosViewSet):
     queryset = Rendicion.objects.select_related('cliente_servicio', 'usuario')
     serializer_class = RendicionSerializer
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def health(request):
+    """Verifica que el servicio de RindeGastos esté operativo."""
+    return Response(
+        {
+            'status': 'ok',
+            'success': True,
+            'message': 'Servicio RindeGastos operativo',
+        },
+        status=status.HTTP_200_OK,
+    )
