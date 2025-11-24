@@ -238,6 +238,10 @@ export const actualizarCentroCosto = async (id, payload) => {
   return enviarRindeGastos(`/centros-costo/${id}/`, payload, 'PUT');
 };
 
+export const eliminarCentroCosto = async (id) => {
+  return enviarRindeGastos(`/centros-costo/${id}/`, null, 'DELETE');
+};
+
 export const crearTipoDocumento = async (clienteServicioId, payload) => {
   return enviarRindeGastos('/tipos-documento/', {
     ...payload,
@@ -249,6 +253,10 @@ export const actualizarTipoDocumento = async (id, payload) => {
   return enviarRindeGastos(`/tipos-documento/${id}/`, payload, 'PUT');
 };
 
+export const eliminarTipoDocumento = async (id) => {
+  return enviarRindeGastos(`/tipos-documento/${id}/`, null, 'DELETE');
+};
+
 export const crearCuentaGlobal = async (clienteServicioId, payload) => {
   return enviarRindeGastos('/cuentas-globales/', {
     ...payload,
@@ -258,4 +266,8 @@ export const crearCuentaGlobal = async (clienteServicioId, payload) => {
 
 export const actualizarCuentaGlobal = async (id, payload) => {
   return enviarRindeGastos(`/cuentas-globales/${id}/`, payload, 'PUT');
+};
+
+export const eliminarCuentaGlobal = async (id) => {
+  return enviarRindeGastos(`/cuentas-globales/${id}/`, null, 'DELETE');
 };
