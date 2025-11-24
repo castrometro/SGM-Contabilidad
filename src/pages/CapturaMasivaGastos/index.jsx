@@ -489,31 +489,48 @@ const CapturaMasivaGastos = () => {
     }
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {rendiciones.map((rendicion) => (
-          <div key={rendicion.id} className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-white font-semibold">Rendición #{rendicion.id}</h3>
-              <span className="text-xs text-gray-400">{formatearFecha(rendicion.fecha_ejecucion)}</span>
-            </div>
-            <p className="text-sm text-gray-300">Usuario: {rendicion.usuario_correo || rendicion.usuario}</p>
-            <p className="text-sm text-gray-300 break-words">
-              Archivo: {rendicion.datos_archivo?.nombre_archivo || rendicion.datos_archivo?.archivo_nombre || "Sin detalle"}
-            </p>
-            <button
-              type="button"
-              onClick={() => volverADescargar(rendicion)}
-              disabled={rendicionDescargandoId === rendicion.id}
-              className={`w-full mt-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                rendicionDescargandoId === rendicion.id
-                  ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-                  : "bg-emerald-600 hover:bg-emerald-500 text-white"
-              }`}
-            >
-              {rendicionDescargandoId === rendicion.id ? "Descargando..." : "Volver a Descargar"}
-            </button>
-          </div>
-        ))}
+      <div className="bg-gray-800 border border-gray-700 rounded-lg">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="text-xs uppercase bg-gray-900/60 text-gray-400">
+              <tr>
+                <th className="px-4 py-3">ID</th>
+                <th className="px-4 py-3">Fecha</th>
+                <th className="px-4 py-3">Usuario</th>
+                <th className="px-4 py-3">Archivo</th>
+                <th className="px-4 py-3 text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rendiciones.map((rendicion) => (
+                <tr key={rendicion.id} className="border-b border-gray-700 hover:bg-gray-900/40">
+                  <td className="px-4 py-3 text-white font-medium">#{rendicion.id}</td>
+                  <td className="px-4 py-3 text-gray-300">{formatearFecha(rendicion.fecha_ejecucion)}</td>
+                  <td className="px-4 py-3 text-gray-300">{rendicion.usuario_correo || rendicion.usuario || "-"}</td>
+                  <td className="px-4 py-3 text-gray-300 break-words">
+                    {rendicion.datos_archivo?.nombre_archivo || rendicion.datos_archivo?.archivo_nombre || "Sin detalle"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-center">
+                      <button
+                        type="button"
+                        onClick={() => volverADescargar(rendicion)}
+                        disabled={rendicionDescargandoId === rendicion.id}
+                        className={`px-3 py-2 rounded-md text-xs font-medium transition-colors ${
+                          rendicionDescargandoId === rendicion.id
+                            ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                            : "bg-emerald-600 hover:bg-emerald-500 text-white"
+                        }`}
+                      >
+                        {rendicionDescargandoId === rendicion.id ? "Descargando..." : "Volver a Descargar"}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     );
   };
