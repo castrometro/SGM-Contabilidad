@@ -194,6 +194,7 @@ const CapturaMasivaGastos = () => {
   const [editingCentroId, setEditingCentroId] = useState(null);
   const [editingTipoId, setEditingTipoId] = useState(null);
   const [editingCuentaId, setEditingCuentaId] = useState(null);
+  const [centrosCostoCargados, setCentrosCostoCargados] = useState(false);
   const [estadoGuardado, setEstadoGuardado] = useState({
     centros: { guardando: false, mensaje: "", error: "" },
     tipos: { guardando: false, mensaje: "", error: "" },
@@ -237,6 +238,11 @@ const CapturaMasivaGastos = () => {
       active = false;
     };
   }, [clienteId]);
+
+  useEffect(() => {
+    // Permite reintentar la carga de centros de costo cuando cambia el archivo o el cliente
+    setCentrosCostoCargados(false);
+  }, [archivo, clienteServicioId]);
 
   useEffect(() => {
     let active = true;
@@ -508,8 +514,14 @@ const CapturaMasivaGastos = () => {
         setEstadoMapeoCC((prev) => ({ ...prev, estado: "buscando", error: "" }));
         let centrosDisponibles = configuracion.centrosCosto;
 
-        if (!centrosDisponibles.length) {
+        if (!centrosDisponibles.length && !centrosCostoCargados) {
           centrosDisponibles = await cargarCentrosCosto();
+          setCentrosCostoCargados(true);
+        }
+
+        // Si ya se intentó cargar y sigue vacío, evitar nuevo fetch para no hacer polling infinito
+        if (centrosDisponibles.length) {
+          setCentrosCostoCargados(true);
         }
 
         mapearCentrosCostoDetectados(centrosDisponibles || []);
@@ -519,7 +531,7 @@ const CapturaMasivaGastos = () => {
     };
 
     ejecutarMapeo();
-  }, [archivo, clienteServicioId, configuracion.centrosCosto, cargarCentrosCosto, mapearCentrosCostoDetectados, servicioNoDisponible]);
+  }, [archivo, clienteServicioId, configuracion.centrosCosto, cargarCentrosCosto, mapearCentrosCostoDetectados, servicioNoDisponible, centrosCostoCargados]);
 
   const accionesBackendDeshabilitadas = servicioNoDisponible;
 
