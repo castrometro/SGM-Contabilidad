@@ -90,7 +90,7 @@ class RendicionMovimiento(models.Model):
     id = models.BigAutoField(primary_key=True)
     rendicion = models.ForeignKey(
         Rendicion,
-        on_delete=models.DO_NOTHING,
+        on_delete=models.CASCADE,
         related_name='movimientos',
         db_column='rendicion_id',
     )

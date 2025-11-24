@@ -9,6 +9,8 @@ from contabilidad.tasks import (
     get_redis_client_db1_binary,
     get_headers_salida_contabilidad,
 )
+from rindegastos.models import Rendicion
+from api.models import ServicioCliente, Usuario
 
 
 def _normalize(text):
@@ -65,10 +67,11 @@ def rg_procesar_archivo_task(self, archivo_content, archivo_nombre, usuario_id, 
 
 
 @shared_task(bind=True)
-def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, parametros_contables=None):
+def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, parametros_contables=None, cliente_servicio_id=None):
     """
     Genera Excel con hojas por grupo (Tipo Doc + cantidad de CC > 0) y guarda en Redis.
     Guarda metadatos en rg_step1_meta:{usuario_id}:{task_id} y el archivo en rg_step1_excel:{usuario_id}:{task_id}
+    Crea un registro de Rendicion en la base de datos.
     """
     task_id = self.request.id
     redis_client = get_redis_client_db1()
@@ -84,6 +87,27 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
     if faltantes:
         raise ValueError(f"Faltan cuentasGlobales requeridas: {', '.join(faltantes)}")
 
+    # Crear registro de Rendicion si se proporcionó cliente_servicio_id
+    rendicion = None
+    if cliente_servicio_id:
+        try:
+            usuario = Usuario.objects.get(id=usuario_id)
+            cliente_servicio = ServicioCliente.objects.get(id=cliente_servicio_id)
+            
+            rendicion = Rendicion.objects.create(
+                cliente_servicio=cliente_servicio,
+                usuario=usuario,
+                fecha_ejecucion=timezone.now(),
+                datos_archivo={
+                    'archivo_nombre': archivo_nombre,
+                    'task_id': task_id,
+                    'parametros_contables': parametros_contables,
+                }
+            )
+        except Exception as e:
+            # Log error pero continuar con el procesamiento
+            print(f"Error creando Rendicion: {str(e)}")
+
     # Meta inicial
     metadata = {
         'task_id': task_id,
@@ -94,6 +118,7 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
         'grupos': [],
         'archivo_excel_disponible': False,
         'cuentas_globales_usadas': list(cuentas_globales.keys()),
+        'rendicion_id': rendicion.id if rendicion else None,
     }
     redis_client.setex(
         f"rg_step1_meta:{usuario_id}:{task_id}", 300, json.dumps(metadata, ensure_ascii=False)

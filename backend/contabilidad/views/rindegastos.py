@@ -175,6 +175,11 @@ def procesar_step1_rindegastos(request):
         if not archivo.name.lower().endswith(('.xlsx', '.xls')):
             return Response({'error': 'El archivo debe ser un Excel (.xlsx o .xls)'}, status=400)
 
+        # Extraer cliente_servicio_id del request
+        cliente_servicio_id = request.data.get('cliente_servicio_id')
+        if not cliente_servicio_id:
+            return Response({'error': 'Se requiere cliente_servicio_id'}, status=400)
+
         # Parse parametros contables obligatorios
         raw_param = request.data.get('parametros_contables')
         
@@ -213,7 +218,8 @@ def procesar_step1_rindegastos(request):
             return Response({'error': f'Faltan cuentasGlobales requeridas: {", ".join(faltantes)}'}, status=400)
 
         contenido = archivo.read()
-        task = rg_procesar_step1_task.delay(contenido, archivo.name, request.user.id, parametros_contables)
+        # Pasar cliente_servicio_id a la task
+        task = rg_procesar_step1_task.delay(contenido, archivo.name, request.user.id, parametros_contables, int(cliente_servicio_id))
         return Response({
             'task_id': task.id,
             'estado': 'procesando',

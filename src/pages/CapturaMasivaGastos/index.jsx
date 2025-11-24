@@ -1238,7 +1238,7 @@ const CapturaMasivaGastos = () => {
       setError("Servicio RindeGastos no disponible, contactar con el administrador.");
       return;
     }
-    await procesarArchivo();
+    await procesarArchivo(clienteServicioId);
   };
 
   const descargarArchivoSeguro = async () => {

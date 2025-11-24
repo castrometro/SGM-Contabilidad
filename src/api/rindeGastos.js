@@ -168,9 +168,15 @@ export const rgProcesarStep1 = async (archivo) => {
 };
 
 // === Flujo asíncrono Step1 (Redis) ===
-export const rgIniciarStep1 = async (archivo, cuentasGlobales = {}, mapeoCC = {}) => {
+export const rgIniciarStep1 = async (archivo, cuentasGlobales = {}, mapeoCC = {}, clienteServicioId = null) => {
   const formData = new FormData();
   formData.append('archivo', archivo);
+  
+  // Agregar cliente_servicio_id si está disponible
+  if (clienteServicioId) {
+    formData.append('cliente_servicio_id', clienteServicioId);
+  }
+  
   // Backend espera 'parametros_contables' como JSON string
   const payloadParam = {
     cuentasGlobales: {

@@ -73,7 +73,14 @@ class RendicionMovimientoAdmin(admin.ModelAdmin):
     ordering = ('-id',)
 
     def has_add_permission(self, request):
+        # No permitir crear movimientos manualmente desde admin
         return False
 
     def has_delete_permission(self, request, obj=None):
+        # Permitir eliminación solo en cascada desde Rendicion
+        # No bloquear delete_permission para superusers o staff
+        return request.user.is_superuser or request.user.is_staff
+    
+    def has_change_permission(self, request, obj=None):
+        # Solo lectura para usuarios normales
         return False
