@@ -61,18 +61,10 @@ const StepCard = ({ number, title, subtitle, locked = false, children }) => {
  * Refactorizada usando el patrón de feature folders
  */
 const TIPOS_CUENTA_GLOBAL = [
-  { value: "IVA", label: "IVA" },
+  { value: "IVA", label: "Iva" },
   { value: "GASTO", label: "Gasto" },
-  { value: "PROVEEDORES", label: "Proveedores" }
+  { value: "PROVEEDOR", label: "Proveedor" }
 ];
-
-const normalizarTipoCuenta = (tipo = "") => {
-  const upper = tipo.toString().trim().toUpperCase();
-  if (upper === "IVA") return "IVA";
-  if (upper === "GASTO") return "GASTO";
-  if (upper.startsWith("PROV")) return "PROVEEDORES";
-  return "";
-};
 
 const CapturaMasivaGastos = () => {
   const { clienteId } = useParams();
@@ -404,7 +396,7 @@ const CapturaMasivaGastos = () => {
       setErrorGuardado("");
       const payload = {
         codigo: cuentaGlobalForm.codigo,
-        tipo: normalizarTipoCuenta(cuentaGlobalForm.tipo)
+        tipo: cuentaGlobalForm.tipo
       };
       if (editingCuentaId) {
         await actualizarCuentaGlobal(editingCuentaId, payload, clienteServicioId);
@@ -781,7 +773,7 @@ const CapturaMasivaGastos = () => {
                           onClick={() => {
                             setCuentaGlobalForm({
                               codigo: cuenta.codigo || "",
-                              tipo: normalizarTipoCuenta(cuenta.tipo)
+                              tipo: cuenta.tipo
                             });
                             setEditingCuentaId(cuenta.id);
                             setMensajeGuardado("");
