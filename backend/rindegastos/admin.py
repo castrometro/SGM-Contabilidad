@@ -1,6 +1,15 @@
 from django.contrib import admin
 
-from .models import CentroCosto, CuentaGlobal, Rendicion, TipoDocumento
+from django.contrib import messages
+from django.db import IntegrityError
+
+from .models import (
+    CentroCosto,
+    CuentaGlobal,
+    Rendicion,
+    RendicionMovimiento,
+    TipoDocumento,
+)
 
 
 @admin.register(TipoDocumento)
@@ -44,3 +53,27 @@ class RendicionAdmin(admin.ModelAdmin):
     readonly_fields = ('fecha_ejecucion', 'datos_archivo', 'created_at', 'updated_at')
     date_hierarchy = 'fecha_ejecucion'
     ordering = ('-fecha_ejecucion',)
+
+    def delete_queryset(self, request, queryset):
+        try:
+            super().delete_queryset(request, queryset)
+        except IntegrityError:
+            messages.error(
+                request,
+                'No se pueden eliminar rendiciones con movimientos asociados.',
+            )
+
+
+@admin.register(RendicionMovimiento)
+class RendicionMovimientoAdmin(admin.ModelAdmin):
+    list_display = ('id', 'rendicion')
+    list_select_related = ('rendicion',)
+    search_fields = ('rendicion__id',)
+    readonly_fields = ('rendicion',)
+    ordering = ('-id',)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

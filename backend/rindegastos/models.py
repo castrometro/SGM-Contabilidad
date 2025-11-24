@@ -84,3 +84,23 @@ class Rendicion(models.Model):
 
     def __str__(self):
         return f"Rendición {self.id} – {self.cliente_servicio} – {self.fecha_ejecucion:%Y-%m-%d}"
+
+
+class RendicionMovimiento(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    rendicion = models.ForeignKey(
+        Rendicion,
+        on_delete=models.DO_NOTHING,
+        related_name='movimientos',
+        db_column='rendicion_id',
+    )
+
+    class Meta:
+        managed = False
+        db_table = 'rindegastos_rendicionmovimiento'
+        verbose_name = 'Movimiento de rendición'
+        verbose_name_plural = 'Movimientos de rendición'
+        ordering = ['-id']
+
+    def __str__(self):
+        return f"Movimiento {self.id} – Rendición {self.rendicion_id}"
