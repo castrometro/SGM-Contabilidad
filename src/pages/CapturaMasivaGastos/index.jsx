@@ -18,6 +18,7 @@ import {
   obtenerCuentasGlobales,
   obtenerRendiciones,
   obtenerTiposDocumento,
+  rgDescargarStep1,
   crearCentroCosto,
   actualizarCentroCosto,
   eliminarCentroCosto,
@@ -179,6 +180,7 @@ const CapturaMasivaGastos = () => {
   const [cargandoRendiciones, setCargandoRendiciones] = useState(false);
   const [errorRendiciones, setErrorRendiciones] = useState("");
   const [historialCargado, setHistorialCargado] = useState(false);
+  const [rendicionDescargandoId, setRendicionDescargandoId] = useState(null);
 
   const [configuracion, setConfiguracion] = useState({
     centrosCosto: [],
@@ -353,6 +355,24 @@ const CapturaMasivaGastos = () => {
     }
   }, [activeTab, clienteServicioId, historialCargado, servicioNoDisponible]);
 
+  const volverADescargar = async (rendicion) => {
+    const taskId = rendicion?.datos_archivo?.task_id;
+    if (!taskId) {
+      setErrorRendiciones("No se encontró información de descarga para esta rendición.");
+      return;
+    }
+
+    try {
+      setRendicionDescargandoId(rendicion.id);
+      await rgDescargarStep1(taskId, clienteId);
+    } catch (err) {
+      console.error("Error al reintentar descarga", err);
+      setErrorRendiciones(err.message || "No se pudo volver a descargar la rendición.");
+    } finally {
+      setRendicionDescargandoId(null);
+    }
+  };
+
   const actualizarEstadoGuardado = (section, updates) => {
     setEstadoGuardado((prev) => ({
       ...prev,
@@ -480,6 +500,18 @@ const CapturaMasivaGastos = () => {
             <p className="text-sm text-gray-300 break-words">
               Archivo: {rendicion.datos_archivo?.nombre_archivo || rendicion.datos_archivo?.archivo_nombre || "Sin detalle"}
             </p>
+            <button
+              type="button"
+              onClick={() => volverADescargar(rendicion)}
+              disabled={rendicionDescargandoId === rendicion.id}
+              className={`w-full mt-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                rendicionDescargandoId === rendicion.id
+                  ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                  : "bg-emerald-600 hover:bg-emerald-500 text-white"
+              }`}
+            >
+              {rendicionDescargandoId === rendicion.id ? "Descargando..." : "Volver a Descargar"}
+            </button>
           </div>
         ))}
       </div>
