@@ -6,6 +6,7 @@ from .views import (
     CuentaGlobalViewSet,
     RendicionViewSet,
     TipoDocumentoViewSet,
+    health,
 )
 
 router = DefaultRouter()
@@ -15,5 +16,6 @@ router.register(r'cuentas-globales', CuentaGlobalViewSet)
 router.register(r'rendiciones', RendicionViewSet)
 
 urlpatterns = [
+    path('health/', health, name='rindegastos-health'),
     path('', include(router.urls)),
 ]

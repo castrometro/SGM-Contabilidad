@@ -13,6 +13,7 @@ import ErrorSection from "./components/ErrorSection";
 import { STYLES_CONFIG, CAPTURA_CONFIG } from "./config/capturaConfig";
 import { obtenerCliente, obtenerServiciosCliente } from "../../api/clientes";
 import {
+  checkRindeGastosSalud,
   obtenerCentrosCosto,
   obtenerCuentasGlobales,
   obtenerRendiciones,
@@ -74,6 +75,7 @@ const CapturaMasivaGastos = () => {
   const [clienteServicioId, setClienteServicioId] = useState(null);
   const [cargandoServicio, setCargandoServicio] = useState(false);
   const [servicioNoDisponible, setServicioNoDisponible] = useState(false);
+  const [errorServicio, setErrorServicio] = useState("");
   const [activeTab, setActiveTab] = useState("rendir");
   const {
     // Estado
@@ -94,7 +96,8 @@ const CapturaMasivaGastos = () => {
     descargarArchivo,
     descargarPlantilla,
     limpiarArchivo,
-    setMapeoCC
+    setMapeoCC,
+    setError
   } = useCapturaGastos();
 
   const [rendiciones, setRendiciones] = useState([]);
@@ -126,18 +129,43 @@ const CapturaMasivaGastos = () => {
   useEffect(() => {
     let active = true;
 
+    const verificarSaludServicio = async () => {
+      if (!clienteId) return;
+      try {
+        await checkRindeGastosSalud();
+        if (!active) return;
+        setServicioNoDisponible(false);
+        setErrorServicio("");
+      } catch (error) {
+        console.error("RindeGastos no disponible", error);
+        if (!active) return;
+        setServicioNoDisponible(true);
+        setErrorServicio(error.message || "Servicio no disponible");
+      }
+    };
+
+    verificarSaludServicio();
+
+    return () => {
+      active = false;
+    };
+  }, [clienteId]);
+
+  useEffect(() => {
+    let active = true;
+
     const cargarContextoCliente = async () => {
       if (!clienteId) {
         setCliente(null);
         setClienteServicioId(null);
         setServicioNoDisponible(false);
+        setErrorServicio("");
         return;
       }
 
       try {
         setCargandoCliente(true);
         setCargandoServicio(true);
-        setServicioNoDisponible(false);
 
         const [clienteData, serviciosData] = await Promise.all([
           obtenerCliente(clienteId),
@@ -154,6 +182,7 @@ const CapturaMasivaGastos = () => {
           } else {
             setClienteServicioId(null);
             setServicioNoDisponible(true);
+            setErrorServicio("No se encontró el servicio RindeGastos para este cliente.");
           }
         }
       } catch (err) {
@@ -162,6 +191,7 @@ const CapturaMasivaGastos = () => {
           setCliente(null);
           setClienteServicioId(null);
           setServicioNoDisponible(true);
+          setErrorServicio("No se pudo cargar la información del cliente o sus servicios.");
         }
       } finally {
         if (active) {
@@ -217,7 +247,7 @@ const CapturaMasivaGastos = () => {
 
   useEffect(() => {
     const cargarHistorial = async () => {
-      if (!clienteServicioId) return;
+      if (!clienteServicioId || servicioNoDisponible) return;
       try {
         setCargandoRendiciones(true);
         setErrorRendiciones("");
@@ -235,10 +265,10 @@ const CapturaMasivaGastos = () => {
     if (activeTab === "historial" && !historialCargado) {
       cargarHistorial();
     }
-  }, [activeTab, clienteServicioId, historialCargado]);
+  }, [activeTab, clienteServicioId, historialCargado, servicioNoDisponible]);
 
   const cargarConfiguracion = useCallback(async () => {
-    if (!clienteServicioId) return;
+    if (!clienteServicioId || servicioNoDisponible) return;
     try {
       setCargandoConfiguracion(true);
       setErrorConfiguracion("");
@@ -259,13 +289,15 @@ const CapturaMasivaGastos = () => {
     } finally {
       setCargandoConfiguracion(false);
     }
-  }, [clienteServicioId]);
+  }, [clienteServicioId, servicioNoDisponible]);
 
   useEffect(() => {
     if (activeTab === "configuraciones" && !configuracionCargada) {
       cargarConfiguracion();
     }
   }, [activeTab, configuracionCargada, cargarConfiguracion]);
+
+  const accionesBackendDeshabilitadas = servicioNoDisponible;
 
   const formatearFecha = (valor) => {
     if (!valor) return "Sin fecha";
@@ -340,7 +372,10 @@ const CapturaMasivaGastos = () => {
 
   const handleGuardarCentro = async (e) => {
     e.preventDefault();
-    if (!clienteServicioId) return;
+    if (!clienteServicioId || accionesBackendDeshabilitadas) {
+      setErrorGuardado("Servicio RindeGastos no disponible, contactar con el administrador.");
+      return;
+    }
     try {
       setGuardando(true);
       setErrorGuardado("");
@@ -367,7 +402,10 @@ const CapturaMasivaGastos = () => {
 
   const handleGuardarTipo = async (e) => {
     e.preventDefault();
-    if (!clienteServicioId) return;
+    if (!clienteServicioId || accionesBackendDeshabilitadas) {
+      setErrorGuardado("Servicio RindeGastos no disponible, contactar con el administrador.");
+      return;
+    }
     try {
       setGuardando(true);
       setErrorGuardado("");
@@ -390,7 +428,10 @@ const CapturaMasivaGastos = () => {
 
   const handleGuardarCuenta = async (e) => {
     e.preventDefault();
-    if (!clienteServicioId) return;
+    if (!clienteServicioId || accionesBackendDeshabilitadas) {
+      setErrorGuardado("Servicio RindeGastos no disponible, contactar con el administrador.");
+      return;
+    }
     try {
       setGuardando(true);
       setErrorGuardado("");
@@ -810,6 +851,30 @@ const CapturaMasivaGastos = () => {
     { id: "rendir", label: "Rendir Gasto" }
   ];
 
+  const handleArchivoSeleccionadoSeguro = (event) => {
+    if (accionesBackendDeshabilitadas) {
+      setError("Servicio RindeGastos no disponible, contactar con el administrador.");
+      return;
+    }
+    handleArchivoSeleccionado(event);
+  };
+
+  const procesarArchivoSeguro = async () => {
+    if (accionesBackendDeshabilitadas) {
+      setError("Servicio RindeGastos no disponible, contactar con el administrador.");
+      return;
+    }
+    await procesarArchivo();
+  };
+
+  const descargarArchivoSeguro = async () => {
+    if (accionesBackendDeshabilitadas) {
+      setError("Servicio RindeGastos no disponible, contactar con el administrador.");
+      return;
+    }
+    await descargarArchivo();
+  };
+
   return (
     <div className={containers.main}>
       {/* Header */}
@@ -838,6 +903,13 @@ const CapturaMasivaGastos = () => {
         {activeTab === "rendir" && (
           <div className="grid lg:grid-cols-4 gap-6 items-start">
             <div className="lg:col-span-3 space-y-6">
+              {servicioNoDisponible && (
+                <div className="bg-amber-900/30 border border-amber-700 text-amber-100 rounded-md px-4 py-3 text-sm">
+                  <p className="font-semibold">Servicio no disponible, contactar con el administrador.</p>
+                  {errorServicio && <p className="text-amber-50/80 text-xs mt-1">Detalle: {errorServicio}</p>}
+                </div>
+              )}
+
               <StepCard
                 number={1}
                 title="Descargar plantilla"
@@ -854,9 +926,9 @@ const CapturaMasivaGastos = () => {
                 <FileUploadSection
                   archivo={archivo}
                   procesando={procesando}
-                  onArchivoSeleccionado={handleArchivoSeleccionado}
+                  onArchivoSeleccionado={handleArchivoSeleccionadoSeguro}
                   onLimpiarArchivo={limpiarArchivo}
-                  onProcesar={procesarArchivo}
+                  onProcesar={procesarArchivoSeguro}
                   showProcesar={false}
                   showTitle={false}
                   useContainer={false}
@@ -912,9 +984,9 @@ const CapturaMasivaGastos = () => {
                     Valida que los centros de costo y las cuentas globales estén completos antes de iniciar.
                   </p>
                   <button
-                    onClick={procesarArchivo}
-                    disabled={!archivo || procesando}
-                    className={`w-full ${buttons.secondary} ${(!archivo || procesando) ? buttons.disabled : ""}`}
+                    onClick={procesarArchivoSeguro}
+                    disabled={!archivo || procesando || accionesBackendDeshabilitadas}
+                    className={`w-full ${buttons.secondary} ${(!archivo || procesando || accionesBackendDeshabilitadas) ? buttons.disabled : ""}`}
                   >
                     {procesando ? "Procesando con Celery..." : "Procesar (Step 1 RG)"}
                   </button>
@@ -928,7 +1000,7 @@ const CapturaMasivaGastos = () => {
               >
                 <ResultsSection
                   resultados={resultados}
-                  onDescargar={descargarArchivo}
+                  onDescargar={descargarArchivoSeguro}
                   showPlaceholder
                   showTitle={false}
                   useContainer={false}
