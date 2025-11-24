@@ -8,6 +8,21 @@ const getAuthHeaders = () => {
   return token ? { 'Authorization': `Bearer ${token}` } : {};
 };
 
+const extraerMensajeError = async (response, defaultText) => {
+  let errorText = defaultText;
+  try {
+    const err = await response.json();
+    if (typeof err === 'string') return err;
+    return err.error || err.detail || err.message || errorText;
+  } catch (_) {
+    try {
+      const raw = await response.text();
+      if (raw) return raw;
+    } catch (_) {}
+  }
+  return errorText;
+};
+
 const fetchRindeGastos = async (endpoint) => {
   const response = await fetch(`${API_RINDE_GASTOS_BASE_URL}${endpoint}`, {
     headers: {
@@ -16,11 +31,7 @@ const fetchRindeGastos = async (endpoint) => {
   });
 
   if (!response.ok) {
-    let errorText = 'Error consultando servicio RindeGastos';
-    try {
-      const err = await response.json();
-      errorText = err.error || errorText;
-    } catch (_) {}
+    const errorText = await extraerMensajeError(response, 'Error consultando servicio RindeGastos');
     throw new Error(errorText);
   }
 
@@ -34,19 +45,24 @@ const enviarRindeGastos = async (endpoint, payload, method = 'POST') => {
       'Content-Type': 'application/json',
       ...getAuthHeaders(),
     },
-    body: JSON.stringify(payload || {}),
+    body: payload === null || typeof payload === 'undefined' ? undefined : JSON.stringify(payload)
   });
 
   if (!response.ok) {
-    let errorText = 'Error consultando servicio RindeGastos';
-    try {
-      const err = await response.json();
-      errorText = err.error || errorText;
-    } catch (_) {}
+    const errorText = await extraerMensajeError(response, 'Error consultando servicio RindeGastos');
     throw new Error(errorText);
   }
 
-  return response.json();
+  const raw = await response.text();
+
+  if (!raw) return {};
+
+  try {
+    return JSON.parse(raw);
+  } catch (parseError) {
+    console.warn('[RG API] Respuesta no JSON, devolviendo texto plano', parseError);
+    return raw;
+  }
 };
 
 export const rgLeerHeadersExcel = async (archivo) => {
@@ -234,8 +250,15 @@ export const crearCentroCosto = async (clienteServicioId, payload) => {
   });
 };
 
-export const actualizarCentroCosto = async (id, payload) => {
-  return enviarRindeGastos(`/centros-costo/${id}/`, payload, 'PUT');
+export const actualizarCentroCosto = async (id, payload, clienteServicioId = null) => {
+  const query = clienteServicioId ? `?cliente_servicio=${clienteServicioId}` : '';
+  const payloadConCliente = clienteServicioId ? { ...payload, cliente_servicio: clienteServicioId } : payload;
+  return enviarRindeGastos(`/centros-costo/${id}/${query}`, payloadConCliente, 'PUT');
+};
+
+export const eliminarCentroCosto = async (id, clienteServicioId = null) => {
+  const query = clienteServicioId ? `?cliente_servicio=${clienteServicioId}` : '';
+  return enviarRindeGastos(`/centros-costo/${id}/${query}`, null, 'DELETE');
 };
 
 export const crearTipoDocumento = async (clienteServicioId, payload) => {
@@ -245,8 +268,15 @@ export const crearTipoDocumento = async (clienteServicioId, payload) => {
   });
 };
 
-export const actualizarTipoDocumento = async (id, payload) => {
-  return enviarRindeGastos(`/tipos-documento/${id}/`, payload, 'PUT');
+export const actualizarTipoDocumento = async (id, payload, clienteServicioId = null) => {
+  const query = clienteServicioId ? `?cliente_servicio=${clienteServicioId}` : '';
+  const payloadConCliente = clienteServicioId ? { ...payload, cliente_servicio: clienteServicioId } : payload;
+  return enviarRindeGastos(`/tipos-documento/${id}/${query}`, payloadConCliente, 'PUT');
+};
+
+export const eliminarTipoDocumento = async (id, clienteServicioId = null) => {
+  const query = clienteServicioId ? `?cliente_servicio=${clienteServicioId}` : '';
+  return enviarRindeGastos(`/tipos-documento/${id}/${query}`, null, 'DELETE');
 };
 
 export const crearCuentaGlobal = async (clienteServicioId, payload) => {
@@ -256,6 +286,13 @@ export const crearCuentaGlobal = async (clienteServicioId, payload) => {
   });
 };
 
-export const actualizarCuentaGlobal = async (id, payload) => {
-  return enviarRindeGastos(`/cuentas-globales/${id}/`, payload, 'PUT');
+export const actualizarCuentaGlobal = async (id, payload, clienteServicioId = null) => {
+  const query = clienteServicioId ? `?cliente_servicio=${clienteServicioId}` : '';
+  const payloadConCliente = clienteServicioId ? { ...payload, cliente_servicio: clienteServicioId } : payload;
+  return enviarRindeGastos(`/cuentas-globales/${id}/${query}`, payloadConCliente, 'PUT');
+};
+
+export const eliminarCuentaGlobal = async (id, clienteServicioId = null) => {
+  const query = clienteServicioId ? `?cliente_servicio=${clienteServicioId}` : '';
+  return enviarRindeGastos(`/cuentas-globales/${id}/${query}`, null, 'DELETE');
 };

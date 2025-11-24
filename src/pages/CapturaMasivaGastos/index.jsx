@@ -19,10 +19,13 @@ import {
   obtenerTiposDocumento,
   crearCentroCosto,
   actualizarCentroCosto,
+  eliminarCentroCosto,
   crearTipoDocumento,
   actualizarTipoDocumento,
+  eliminarTipoDocumento,
   crearCuentaGlobal,
-  actualizarCuentaGlobal
+  actualizarCuentaGlobal,
+  eliminarCuentaGlobal
 } from "../../api/rindeGastos";
 
 const normalizarNombre = (valor = "") => valor.toString().normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
@@ -57,6 +60,12 @@ const StepCard = ({ number, title, subtitle, locked = false, children }) => {
  * Página principal de captura masiva de gastos
  * Refactorizada usando el patrón de feature folders
  */
+const TIPOS_CUENTA_GLOBAL = [
+  { value: "IVA", label: "Iva" },
+  { value: "GASTO", label: "Gasto" },
+  { value: "PROVEEDOR", label: "Proveedor" }
+];
+
 const CapturaMasivaGastos = () => {
   const { clienteId } = useParams();
   const { usuario } = useAuth();
@@ -341,7 +350,7 @@ const CapturaMasivaGastos = () => {
         activo: Boolean(centroForm.activo)
       };
       if (editingCentroId) {
-        await actualizarCentroCosto(editingCentroId, payload);
+        await actualizarCentroCosto(editingCentroId, payload, clienteServicioId);
       } else {
         await crearCentroCosto(clienteServicioId, payload);
       }
@@ -364,7 +373,7 @@ const CapturaMasivaGastos = () => {
       setErrorGuardado("");
       const payload = { nombre: tipoDocForm.nombre, codigo: tipoDocForm.codigo };
       if (editingTipoId) {
-        await actualizarTipoDocumento(editingTipoId, payload);
+        await actualizarTipoDocumento(editingTipoId, payload, clienteServicioId);
       } else {
         await crearTipoDocumento(clienteServicioId, payload);
       }
@@ -385,9 +394,12 @@ const CapturaMasivaGastos = () => {
     try {
       setGuardando(true);
       setErrorGuardado("");
-      const payload = { codigo: cuentaGlobalForm.codigo, tipo: cuentaGlobalForm.tipo };
+      const payload = {
+        codigo: cuentaGlobalForm.codigo,
+        tipo: cuentaGlobalForm.tipo
+      };
       if (editingCuentaId) {
-        await actualizarCuentaGlobal(editingCuentaId, payload);
+        await actualizarCuentaGlobal(editingCuentaId, payload, clienteServicioId);
       } else {
         await crearCuentaGlobal(clienteServicioId, payload);
       }
@@ -397,6 +409,87 @@ const CapturaMasivaGastos = () => {
     } catch (error) {
       console.error("Error guardando cuenta global", error);
       setErrorGuardado(error.message || "No se pudo guardar la cuenta global");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const handleEliminarCentro = async (id) => {
+    if (!clienteServicioId) return;
+    const centro = configuracion.centrosCosto.find((item) => item.id === id);
+    const confirmDelete = window.confirm(
+      `¿Eliminar el centro de costo ${centro?.apodo || "seleccionado"}?`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      setGuardando(true);
+      setMensajeGuardado("");
+      setErrorGuardado("");
+      await eliminarCentroCosto(id, clienteServicioId);
+      if (editingCentroId === id) {
+        setCentroForm({ apodo: "", codigo: "", activo: true });
+        setEditingCentroId(null);
+      }
+      setMensajeGuardado("Centro de costo eliminado correctamente");
+      await cargarConfiguracion();
+    } catch (error) {
+      console.error("Error eliminando centro de costo", error);
+      setErrorGuardado(error.message || "No se pudo eliminar el centro de costo");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const handleEliminarTipo = async (id) => {
+    if (!clienteServicioId) return;
+    const tipo = configuracion.tiposDocumento.find((item) => item.id === id);
+    const confirmDelete = window.confirm(
+      `¿Eliminar el tipo de documento ${tipo?.nombre || "seleccionado"}?`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      setGuardando(true);
+      setMensajeGuardado("");
+      setErrorGuardado("");
+      await eliminarTipoDocumento(id, clienteServicioId);
+      if (editingTipoId === id) {
+        setTipoDocForm({ nombre: "", codigo: "" });
+        setEditingTipoId(null);
+      }
+      setMensajeGuardado("Tipo de documento eliminado correctamente");
+      await cargarConfiguracion();
+    } catch (error) {
+      console.error("Error eliminando tipo de documento", error);
+      setErrorGuardado(error.message || "No se pudo eliminar el tipo de documento");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const handleEliminarCuenta = async (id) => {
+    if (!clienteServicioId) return;
+    const cuenta = configuracion.cuentasGlobales.find((item) => item.id === id);
+    const confirmDelete = window.confirm(
+      `¿Eliminar la cuenta global ${cuenta?.codigo || "seleccionada"}?`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      setGuardando(true);
+      setMensajeGuardado("");
+      setErrorGuardado("");
+      await eliminarCuentaGlobal(id, clienteServicioId);
+      if (editingCuentaId === id) {
+        setCuentaGlobalForm({ codigo: "", tipo: "" });
+        setEditingCuentaId(null);
+      }
+      setMensajeGuardado("Cuenta global eliminada correctamente");
+      await cargarConfiguracion();
+    } catch (error) {
+      console.error("Error eliminando cuenta global", error);
+      setErrorGuardado(error.message || "No se pudo eliminar la cuenta global");
     } finally {
       setGuardando(false);
     }
@@ -526,6 +619,13 @@ const CapturaMasivaGastos = () => {
                         >
                           Editar
                         </button>
+                        <button
+                          onClick={() => handleEliminarCentro(cc.id)}
+                          className="text-xs text-red-200 underline"
+                          disabled={guardando}
+                        >
+                          Eliminar
+                        </button>
                       </div>
                     </li>
                   ))}
@@ -583,17 +683,26 @@ const CapturaMasivaGastos = () => {
                         <p className="text-white font-medium">{doc.nombre}</p>
                         <p className="text-xs text-gray-400">Código: {doc.codigo}</p>
                       </div>
-                      <button
-                        onClick={() => {
-                          setTipoDocForm({ nombre: doc.nombre || "", codigo: doc.codigo || "" });
-                          setEditingTipoId(doc.id);
-                          setMensajeGuardado("");
-                          setErrorGuardado("");
-                        }}
-                        className="text-xs text-blue-200 underline"
-                      >
-                        Editar
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setTipoDocForm({ nombre: doc.nombre || "", codigo: doc.codigo || "" });
+                            setEditingTipoId(doc.id);
+                            setMensajeGuardado("");
+                            setErrorGuardado("");
+                          }}
+                          className="text-xs text-blue-200 underline"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => handleEliminarTipo(doc.id)}
+                          className="text-xs text-red-200 underline"
+                          disabled={guardando}
+                        >
+                          Eliminar
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -625,14 +734,22 @@ const CapturaMasivaGastos = () => {
               </div>
               <div>
                 <label className="block text-xs text-gray-400 mb-1">Tipo</label>
-                <input
+                <select
                   className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100"
                   value={cuentaGlobalForm.tipo}
                   onChange={(e) => setCuentaGlobalForm({ ...cuentaGlobalForm, tipo: e.target.value })}
                   disabled={guardando}
                   required
-                  placeholder="Ej: gasto, proveedores, iva"
-                />
+                >
+                  <option value="" disabled>
+                    Selecciona un tipo
+                  </option>
+                  {TIPOS_CUENTA_GLOBAL.map((tipo) => (
+                    <option key={tipo.value} value={tipo.value}>
+                      {tipo.label}
+                    </option>
+                  ))}
+                </select>
               </div>
               <button
                 type="submit"
@@ -651,17 +768,29 @@ const CapturaMasivaGastos = () => {
                         <p className="text-white font-medium">{cuenta.codigo}</p>
                         <p className="text-xs text-gray-400">Tipo: {cuenta.tipo}</p>
                       </div>
-                      <button
-                        onClick={() => {
-                          setCuentaGlobalForm({ codigo: cuenta.codigo || "", tipo: cuenta.tipo || "" });
-                          setEditingCuentaId(cuenta.id);
-                          setMensajeGuardado("");
-                          setErrorGuardado("");
-                        }}
-                        className="text-xs text-purple-200 underline"
-                      >
-                        Editar
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setCuentaGlobalForm({
+                              codigo: cuenta.codigo || "",
+                              tipo: cuenta.tipo
+                            });
+                            setEditingCuentaId(cuenta.id);
+                            setMensajeGuardado("");
+                            setErrorGuardado("");
+                          }}
+                          className="text-xs text-purple-200 underline"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => handleEliminarCuenta(cuenta.id)}
+                          className="text-xs text-red-200 underline"
+                          disabled={guardando}
+                        >
+                          Eliminar
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>
