@@ -36,15 +36,77 @@ const esServicioRindegastos = (nombre = "") => {
   return nombrePlano.includes("rindegastos") || nombrePlano.startsWith("rinde");
 };
 
+/**
+ * Modal component for displaying forms and dialogs
+ * @param {boolean} isOpen - Whether the modal is open
+ * @param {function} onClose - Function to call when closing the modal
+ * @param {string} title - Modal title displayed in the header
+ * @param {React.ReactNode} children - Modal content
+ */
 const Modal = ({ isOpen, onClose, title, children }) => {
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Focus trap: find all focusable elements
+    const modal = document.querySelector('[role="dialog"]');
+    if (!modal) return;
+
+    const focusableElements = modal.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+
+    // Focus first element when modal opens
+    firstElement?.focus();
+
+    const handleTab = (e) => {
+      if (e.key !== 'Tab') return;
+
+      if (e.shiftKey) {
+        if (document.activeElement === firstElement) {
+          e.preventDefault();
+          lastElement?.focus();
+        }
+      } else {
+        if (document.activeElement === lastElement) {
+          e.preventDefault();
+          firstElement?.focus();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleTab);
+    return () => document.removeEventListener('keydown', handleTab);
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
-      <div className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between p-4 border-b border-gray-700">
-          <h3 className="text-lg font-semibold text-white">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+          <h3 id="modal-title" className="text-lg font-semibold text-white">{title}</h3>
+          <button onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
         </div>
         <div className="p-4">{children}</div>
       </div>
@@ -757,7 +819,11 @@ const CapturaMasivaGastos = () => {
             {renderMensajesSeccion("centros")}
             
             <div className="flex items-center justify-between gap-3 flex-wrap">
+              <label htmlFor="busqueda-centros" className="sr-only">
+                Buscar centros de costo
+              </label>
               <input
+                id="busqueda-centros"
                 type="text"
                 placeholder="Buscar por nombre o código..."
                 value={busquedaCentros}
@@ -831,7 +897,11 @@ const CapturaMasivaGastos = () => {
             {renderMensajesSeccion("tipos")}
             
             <div className="flex items-center justify-between gap-3 flex-wrap">
+              <label htmlFor="busqueda-tipos" className="sr-only">
+                Buscar tipos de documento
+              </label>
               <input
+                id="busqueda-tipos"
                 type="text"
                 placeholder="Buscar por nombre o código..."
                 value={busquedaTipos}
@@ -898,7 +968,11 @@ const CapturaMasivaGastos = () => {
           {renderMensajesSeccion("cuentas")}
           
           <div className="flex items-center justify-between gap-3 flex-wrap">
+            <label htmlFor="busqueda-cuentas" className="sr-only">
+              Buscar cuentas globales
+            </label>
             <input
+              id="busqueda-cuentas"
               type="text"
               placeholder="Buscar por código o tipo..."
               value={busquedaCuentas}
