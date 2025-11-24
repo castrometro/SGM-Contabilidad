@@ -46,6 +46,11 @@ const esServicioRindegastos = (nombre = "") => {
  */
 const Modal = ({ isOpen, onClose, title, children }) => {
   const modalRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -66,7 +71,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
     const handleKeyDown = (e) => {
       // Handle Escape key
       if (e.key === 'Escape') {
-        onClose();
+        onCloseRef.current?.();
         return;
       }
 
@@ -88,7 +93,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
