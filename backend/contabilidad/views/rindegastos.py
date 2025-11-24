@@ -2,11 +2,12 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from openpyxl import load_workbook, Workbook
-from io import BytesIO
-import unicodedata
-from django.http import HttpResponse
 import json
+import unicodedata
+from io import BytesIO
+
+from django.http import HttpResponse
+from openpyxl import load_workbook
 from api.models import AsignacionClienteUsuario, ServicioCliente
 from contabilidad.tasks import (
     get_headers_salida_contabilidad,
@@ -14,7 +15,11 @@ from contabilidad.tasks import (
     get_redis_client_db1_binary,
 )
 ## Endpoint sincrónico eliminado: se fuerza uso de Celery
-from contabilidad.task_rindegastos import rg_procesar_step1_task
+from contabilidad.task_rindegastos import (
+    reconstruir_excel_desde_json,
+    rg_procesar_step1_task,
+)
+from rindegastos.models import Rendicion
 
 
 def _extract_cliente_id(request):
@@ -175,6 +180,11 @@ def procesar_step1_rindegastos(request):
         if not archivo.name.lower().endswith(('.xlsx', '.xls')):
             return Response({'error': 'El archivo debe ser un Excel (.xlsx o .xls)'}, status=400)
 
+        # Extraer cliente_servicio_id del request
+        cliente_servicio_id = request.data.get('cliente_servicio_id')
+        if not cliente_servicio_id:
+            return Response({'error': 'Se requiere cliente_servicio_id'}, status=400)
+
         # Parse parametros contables obligatorios
         raw_param = request.data.get('parametros_contables')
         
@@ -213,7 +223,8 @@ def procesar_step1_rindegastos(request):
             return Response({'error': f'Faltan cuentasGlobales requeridas: {", ".join(faltantes)}'}, status=400)
 
         contenido = archivo.read()
-        task = rg_procesar_step1_task.delay(contenido, archivo.name, request.user.id, parametros_contables)
+        # Pasar cliente_servicio_id a la task
+        task = rg_procesar_step1_task.delay(contenido, archivo.name, request.user.id, parametros_contables, int(cliente_servicio_id))
         return Response({
             'task_id': task.id,
             'estado': 'procesando',
@@ -246,27 +257,52 @@ def estado_step1_rindegastos(request, task_id):
 def descargar_step1_rindegastos(request, task_id):
     try:
         cliente_id = _extract_cliente_id(request)
-        if not _user_has_rindegastos(request.user, cliente_id):
-            return Response({'error': 'El servicio RindeGastos no está habilitado para este usuario/cliente'}, status=403)
 
         r = get_redis_client_db1()
         meta_raw = r.get(f"rg_step1_meta:{request.user.id}:{task_id}")
-        if not meta_raw:
-            return Response({'error': 'No se encontró información de la tarea'}, status=404)
-        meta = json.loads(meta_raw)
-        if meta.get('estado') != 'completado':
+        meta = json.loads(meta_raw) if meta_raw else None
+
+        # Validar permisos con el cliente solicitado o con la rendición asociada
+        rendicion = Rendicion.objects.filter(datos_archivo__task_id=task_id).select_related('cliente_servicio__cliente').first()
+        rendicion_cliente_id = getattr(getattr(rendicion, 'cliente_servicio', None), 'cliente_id', None)
+
+        cliente_permiso = cliente_id or rendicion_cliente_id
+        if cliente_permiso and not _user_has_rindegastos(request.user, cliente_permiso):
+            return Response({'error': 'El servicio RindeGastos no está habilitado para este usuario/cliente'}, status=403)
+        if not cliente_permiso and not _user_has_rindegastos(request.user, cliente_id):
+            return Response({'error': 'El servicio RindeGastos no está habilitado para este usuario/cliente'}, status=403)
+
+        if meta and meta.get('estado') != 'completado':
             return Response({'error': 'La tarea aún no ha sido completada'}, status=400)
 
         r_bin = get_redis_client_db1_binary()
         excel_content = r_bin.get(f"rg_step1_excel:{request.user.id}:{task_id}")
+
+        # Si no está en Redis, intentar recrearlo desde la rendición guardada
+        if not excel_content and rendicion and rendicion.datos_archivo:
+            datos_archivo = rendicion.datos_archivo
+            excel_json = datos_archivo.get('excel_json')
+            if excel_json:
+                excel_content = reconstruir_excel_desde_json(excel_json)
+                if not meta:
+                    meta = datos_archivo.get('metadata')
+                # Rehidratar cache por 5 minutos para próximas descargas
+                r_bin.setex(f"rg_step1_excel:{request.user.id}:{task_id}", 300, excel_content)
+                if meta:
+                    r.setex(f"rg_step1_meta:{request.user.id}:{task_id}", 300, json.dumps(meta, ensure_ascii=False))
+
         if not excel_content:
             return Response({'error': 'El archivo procesado no está disponible'}, status=404)
+
+        nombre_archivo = 'rg_step1_{0}.xlsx'.format(task_id)
+        if rendicion and rendicion.datos_archivo:
+            nombre_archivo = rendicion.datos_archivo.get('archivo_nombre', nombre_archivo)
 
         resp = HttpResponse(
             excel_content,
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
-        resp['Content-Disposition'] = f'attachment; filename="rg_step1_{task_id}.xlsx"'
+        resp['Content-Disposition'] = f'attachment; filename="{nombre_archivo}"'
         return resp
     except Exception as e:
         return Response({'error': f'Error descargando archivo: {str(e)}'}, status=500)

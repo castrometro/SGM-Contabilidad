@@ -108,11 +108,12 @@ export const useCapturaGastos = () => {
   };
 
   // Procesar archivo
-  const procesarArchivo = async () => {
+  const procesarArchivo = async (clienteServicioId = null) => {
     console.log('🚀 procesarArchivo llamado');
     console.log('📁 archivo:', archivo);
     console.log('🗺️ mapeoCC:', mapeoCC);
     console.log('👀 mostrarMapeoCC:', mostrarMapeoCC);
+    console.log('🏢 clienteServicioId:', clienteServicioId);
     
     if (!archivo) {
       console.log('❌ Sin archivo');
@@ -182,7 +183,7 @@ export const useCapturaGastos = () => {
     
     try {
       // Llamar al endpoint RG asíncrono que exige parametros_contables
-      const respuesta = await rgIniciarStep1(archivo, cuentasGlobales, mapeoCC);
+      const respuesta = await rgIniciarStep1(archivo, cuentasGlobales, mapeoCC, clienteServicioId);
       setTaskId(respuesta.task_id);
       console.log('✅ Step1 RG iniciado, task_id:', respuesta.task_id);
     } catch (error) {

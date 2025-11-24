@@ -168,9 +168,15 @@ export const rgProcesarStep1 = async (archivo) => {
 };
 
 // === Flujo asíncrono Step1 (Redis) ===
-export const rgIniciarStep1 = async (archivo, cuentasGlobales = {}, mapeoCC = {}) => {
+export const rgIniciarStep1 = async (archivo, cuentasGlobales = {}, mapeoCC = {}, clienteServicioId = null) => {
   const formData = new FormData();
   formData.append('archivo', archivo);
+  
+  // Agregar cliente_servicio_id si está disponible
+  if (clienteServicioId) {
+    formData.append('cliente_servicio_id', clienteServicioId);
+  }
+  
   // Backend espera 'parametros_contables' como JSON string
   const payloadParam = {
     cuentasGlobales: {
@@ -224,9 +230,11 @@ export const rgEstadoStep1 = async (taskId) => {
   return data; // { estado, ... }
 };
 
-export const rgDescargarStep1 = async (taskId) => {
+export const rgDescargarStep1 = async (taskId, clienteId = null) => {
   const token = localStorage.getItem('token');
-  const response = await fetch(`${API_BASE_URL}/rindegastos/step1/descargar/${taskId}/`, {
+  const baseUrl = `${API_BASE_URL}/rindegastos/step1/descargar/${taskId}/`;
+  const query = clienteId ? `?cliente_id=${clienteId}` : '';
+  const response = await fetch(`${baseUrl}${query}`, {
     method: 'GET',
     headers: { 'Authorization': `Bearer ${token}` },
   });
