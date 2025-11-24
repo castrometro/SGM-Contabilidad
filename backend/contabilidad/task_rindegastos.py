@@ -11,7 +11,7 @@ from contabilidad.tasks import (
     get_redis_client_db1,
     get_redis_client_db1_binary,
 )
-from rindegastos.models import Rendicion
+from rindegastos.models import Rendicion, TipoDocumento
 
 
 def _normalize(text):
@@ -122,7 +122,7 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
         try:
             usuario = Usuario.objects.get(id=usuario_id)
             cliente_servicio = ServicioCliente.objects.get(id=cliente_servicio_id)
-            
+
             rendicion = Rendicion.objects.create(
                 cliente_servicio=cliente_servicio,
                 usuario=usuario,
@@ -136,6 +136,22 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
         except Exception as e:
             # Log error pero continuar con el procesamiento
             print(f"Error creando Rendicion: {str(e)}")
+
+    # Mapeo código -> nombre de tipos de documento desde BD
+    tipos_documento_map = {}
+    if cliente_servicio_id:
+        try:
+            tipos_documento_map = {
+                str(codigo).strip(): nombre
+                for codigo, nombre in TipoDocumento.objects.filter(cliente_servicio_id=cliente_servicio_id).values_list('codigo', 'nombre')
+            }
+        except Exception as e:
+            print(f"Error cargando tipos de documento para cliente_servicio {cliente_servicio_id}: {str(e)}")
+
+    def tipo_doc_display(codigo):
+        if codigo is None:
+            return ""
+        return tipos_documento_map.get(str(codigo).strip(), str(codigo))
 
     # Meta inicial
     metadata = {
@@ -221,6 +237,7 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
         total_filas += 1
         tipo_doc = row[idx_tipo_doc] if idx_tipo_doc < len(row) else None
         tipo_doc = str(tipo_doc) if tipo_doc is not None else 'Sin Tipo'
+        tipo_doc_nombre = tipo_doc_display(tipo_doc) or 'Sin Tipo'
 
         # Contar CC válidos
         cc_count = 0
@@ -242,13 +259,14 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                     cc_count += 1
                     vistos.add(nombre)
 
-        clave = f"{tipo_doc} con {cc_count}CC"
+        clave = f"{tipo_doc_nombre} con {cc_count}CC"
         grupos[clave] = grupos.get(clave, 0) + 1
-        grupos_filas.setdefault(clave, []).append((tipo_doc, cc_count, row_idx))
+        grupos_filas.setdefault(clave, []).append((tipo_doc, tipo_doc_nombre, cc_count, row_idx))
         filas_originales[row_idx] = row
         debug_filas.append({
             'fila_excel': row_idx,
             'tipo_doc': tipo_doc,
+            'tipo_doc_nombre': tipo_doc_nombre,
             'cc_count': cc_count,
             'clave': clave
         })
@@ -311,11 +329,13 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
             except Exception:
                 return 0
 
-        for idx_fila, (tipo_doc_str, cc_count, fila_original_idx) in enumerate(filas_grupo, start=1):
+        for idx_fila, (tipo_doc_str, tipo_doc_nombre, cc_count, fila_original_idx) in enumerate(filas_grupo, start=1):
             row_in = filas_originales.get(fila_original_idx, [])
             monto_neto = _parse_numeric(row_in[idx_monto_neto]) if idx_monto_neto is not None and idx_monto_neto < len(row_in) else 0.0
             if monto_neto is None:
                 monto_neto = 0.0
+
+            tipo_doc_valor = tipo_doc_nombre or tipo_doc_str
 
             # Issue #174: Para tipo doc 33, sumar monto exento al monto neto
             monto_exento = 0.0
@@ -453,8 +473,8 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                         'Código Plan de Cuenta': cuentas_globales.get('iva'),
                         'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                         'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                        'Numero': tipo_doc_str,  # Issues #3 y #4
-                        'Tipo Documento': tipo_doc_str,  # Issues #3 y #4
+                        'Numero': tipo_doc_valor,  # Issues #3 y #4
+                        'Tipo Documento': tipo_doc_valor,  # Issues #3 y #4
                         'Numero Doc': folio  # Issues #3 y #4
                     }
                 )
@@ -475,8 +495,8 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                         'Codigo Auxiliar': rut_proveedor,  # RUT Proveedor del input
                         'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                         'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                        'Numero': tipo_doc_str,  # Issues #3 y #4
-                        'Tipo Documento': tipo_doc_str,  # Issues #3 y #4
+                        'Numero': tipo_doc_valor,  # Issues #3 y #4
+                        'Tipo Documento': tipo_doc_valor,  # Issues #3 y #4
                         'Numero Doc': folio  # Issues #3 y #4
                     }
                 )
@@ -492,8 +512,8 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                             'Código Plan de Cuenta': cuentas_globales.get('gasto_default'),
                             'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                             'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                            'Numero': tipo_doc_str,  # Issues #3 y #4
-                            'Tipo Documento': tipo_doc_str,  # Issues #3 y #4
+                            'Numero': tipo_doc_valor,  # Issues #3 y #4
+                            'Tipo Documento': tipo_doc_valor,  # Issues #3 y #4
                             'Numero Doc': folio  # Issues #3 y #4
                         }
                     )
@@ -513,8 +533,8 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                         'Codigo Auxiliar': rut_proveedor,  # RUT Proveedor del input
                         'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                         'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                        'Numero': tipo_doc_str,  # Issues #3 y #4
-                        'Tipo Documento': tipo_doc_str,  # Issues #3 y #4
+                        'Numero': tipo_doc_valor,  # Issues #3 y #4
+                        'Tipo Documento': tipo_doc_valor,  # Issues #3 y #4
                         'Numero Doc': folio  # Issues #3 y #4
                     }
                 )
@@ -529,8 +549,8 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                             'Código Plan de Cuenta': cuentas_globales.get('gasto_default'),
                             'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                             'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                            'Numero': tipo_doc_str,  # Issues #3 y #4
-                            'Tipo Documento': tipo_doc_str,  # Issues #3 y #4
+                            'Numero': tipo_doc_valor,  # Issues #3 y #4
+                            'Tipo Documento': tipo_doc_valor,  # Issues #3 y #4
                             'Numero Doc': folio  # Issues #3 y #4
                         }
                     )
@@ -545,8 +565,8 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                         'Codigo Auxiliar': rut_proveedor,  # RUT Proveedor del input
                         'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                         'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                        'Numero': tipo_doc_str,  # Issues #3 y #4
-                        'Tipo Documento': tipo_doc_str,  # Issues #3 y #4
+                        'Numero': tipo_doc_valor,  # Issues #3 y #4
+                        'Tipo Documento': tipo_doc_valor,  # Issues #3 y #4
                         'Numero Doc': folio  # Issues #3 y #4
                     }
                 )
@@ -561,8 +581,8 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                             'Código Plan de Cuenta': cuentas_globales.get('gasto_default'),
                             'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                             'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                            'Numero': tipo_doc_str,  # Issues #3 y #4
-                            'Tipo Documento': tipo_doc_str,  # Issues #3 y #4
+                            'Numero': tipo_doc_valor,  # Issues #3 y #4
+                            'Tipo Documento': tipo_doc_valor,  # Issues #3 y #4
                             'Numero Doc': folio  # Issues #3 y #4
                         }
                     )
@@ -579,8 +599,8 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                         'Código Plan de Cuenta': cuentas_globales.get('iva'),
                         'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                         'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                        'Numero': tipo_doc_str,  # Issues #3 y #4
-                        'Tipo Docto. Conciliación': tipo_doc_str,  # Issues #3 y #4
+                        'Numero': tipo_doc_valor,  # Issues #3 y #4
+                        'Tipo Docto. Conciliación': tipo_doc_valor,  # Issues #3 y #4
                         'Nro. Docto. Conciliación': folio  # Issues #3 y #4
                     }
                 )
@@ -601,8 +621,8 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                         'Codigo Auxiliar': rut_proveedor,  # RUT Proveedor del input
                         'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                         'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                        'Numero': tipo_doc_str,  # Issues #3 y #4
-                        'Tipo Documento': tipo_doc_str,  # Issues #3 y #4
+                        'Numero': tipo_doc_valor,  # Issues #3 y #4
+                        'Tipo Documento': tipo_doc_valor,  # Issues #3 y #4
                         'Numero Doc': folio  # Issues #3 y #4
                     }
                 )
@@ -618,8 +638,8 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                             'Código Plan de Cuenta': cuentas_globales.get('gasto_default'),
                             'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                             'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                            'Numero': tipo_doc_str,  # Issues #3 y #4
-                            'Tipo Documento': tipo_doc_str,  # Issues #3 y #4
+                            'Numero': tipo_doc_valor,  # Issues #3 y #4
+                            'Tipo Documento': tipo_doc_valor,  # Issues #3 y #4
                             'Numero Doc': folio  # Issues #3 y #4
                         }
                     )
