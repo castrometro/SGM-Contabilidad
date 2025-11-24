@@ -41,4 +41,4 @@ class RendicionSerializer(serializers.ModelSerializer):
             'id', 'cliente_servicio', 'usuario', 'usuario_correo',
             'fecha_ejecucion', 'datos_archivo', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'usuario_correo', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'usuario', 'usuario_correo', 'created_at', 'updated_at']

@@ -65,6 +65,15 @@ class RendicionViewSet(BaseRindeGastosViewSet):
     queryset = Rendicion.objects.select_related('cliente_servicio', 'usuario')
     serializer_class = RendicionSerializer
 
+    def perform_create(self, serializer):
+        cliente_servicio = serializer.validated_data.get('cliente_servicio')
+        allowed = _cliente_servicios_permitidos(self.request.user)
+        if not allowed.filter(pk=getattr(cliente_servicio, 'pk', None)).exists():
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('No puedes operar sobre este servicio del cliente.')
+
+        serializer.save(usuario=self.request.user)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

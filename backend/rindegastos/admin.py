@@ -41,4 +41,6 @@ class RendicionAdmin(admin.ModelAdmin):
         'usuario__nombre',
         'usuario__apellido',
     )
+    readonly_fields = ('fecha_ejecucion', 'datos_archivo', 'created_at', 'updated_at')
+    date_hierarchy = 'fecha_ejecucion'
     ordering = ('-fecha_ejecucion',)
