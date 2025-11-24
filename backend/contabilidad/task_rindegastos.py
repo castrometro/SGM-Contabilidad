@@ -1,16 +1,17 @@
-from celery import shared_task
-from io import BytesIO
-from openpyxl import load_workbook, Workbook
-from django.utils import timezone
 import json
+from io import BytesIO
 
+from celery import shared_task
+from django.utils import timezone
+from openpyxl import Workbook, load_workbook
+
+from api.models import ServicioCliente, Usuario
 from contabilidad.tasks import (
+    get_headers_salida_contabilidad,
     get_redis_client_db1,
     get_redis_client_db1_binary,
-    get_headers_salida_contabilidad,
 )
 from rindegastos.models import Rendicion
-from api.models import ServicioCliente, Usuario
 
 
 def _normalize(text):
@@ -49,6 +50,34 @@ def _find_cc_range(headers):
     if last_nombre_idx != -1 and fecha_ap_idx is not None and fecha_ap_idx - last_nombre_idx > 1:
         return last_nombre_idx + 1, fecha_ap_idx
     return None, None
+
+
+def reconstruir_excel_desde_json(excel_json):
+    """Reconstruye un archivo Excel a partir de datos planos almacenados como JSON."""
+    wb = Workbook()
+    # Elimina la hoja por defecto para recrear las originales
+    wb.remove(wb.active)
+
+    sheets = excel_json.get('sheets', [])
+    if not sheets:
+        wb.create_sheet(title='Sheet')
+        buffer = BytesIO()
+        wb.save(buffer)
+        return buffer.getvalue()
+
+    for sheet in sheets:
+        ws = wb.create_sheet(title=sheet.get('nombre') or 'Sheet')
+        headers = sheet.get('headers') or []
+        for col_idx, header in enumerate(headers, start=1):
+            ws.cell(row=1, column=col_idx, value=header)
+
+        for row_idx, row_values in enumerate(sheet.get('rows', []), start=2):
+            for col_idx, value in enumerate(row_values, start=1):
+                ws.cell(row=row_idx, column=col_idx, value=value)
+
+    buffer = BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()
 
 
 @shared_task(bind=True)
@@ -245,8 +274,11 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
         s = str(name).replace(':', '-').replace('/', '-').replace('\\', '-')
         return s[:31] if len(s) > 31 else s
 
+    excel_json = {'sheets': []}
+
     for clave in sorted(grupos.keys()):
-        ws = wb_out.create_sheet(title=sanitize(clave))
+        sheet_name = sanitize(clave)
+        ws = wb_out.create_sheet(title=sheet_name)
         for col_idx, h in enumerate(headers_salida, start=1):
             ws.cell(row=1, column=col_idx, value=h)
         row_cursor = 2
@@ -254,6 +286,12 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
         filas_grupo = grupos_filas.get(clave, [])
         # Mapeo header salida -> índice para escribir
         header_to_col = {h: i + 1 for i, h in enumerate(headers_salida)}
+        sheet_json = {
+            'nombre': sheet_name,
+            'headers': headers_salida,
+            'rows': [],
+        }
+        excel_json['sheets'].append(sheet_json)
 
         # Detectar índices de columnas relevantes en entrada (heurística case-insensitive)
         headers_lower = [str(h).strip().lower() for h in headers]
@@ -380,16 +418,28 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
 
             def write_row(descripcion, debe=None, haber=None, extra=None):
                 nonlocal row_cursor
+                row_values = [None] * len(headers_salida)
                 if debe is not None:
-                    ws.cell(row=row_cursor, column=header_to_col.get('Monto al Debe Moneda Base', 3), value=_truncate_number(debe))
+                    valor = _truncate_number(debe)
+                    col = header_to_col.get('Monto al Debe Moneda Base', 3)
+                    ws.cell(row=row_cursor, column=col, value=valor)
+                    row_values[col - 1] = valor
                 if haber is not None:
-                    ws.cell(row=row_cursor, column=header_to_col.get('Monto al Haber Moneda Base', 4), value=_truncate_number(haber))
-                ws.cell(row=row_cursor, column=header_to_col.get('Descripción Movimiento', 5), value=descripcion)
+                    valor = _truncate_number(haber)
+                    col = header_to_col.get('Monto al Haber Moneda Base', 4)
+                    ws.cell(row=row_cursor, column=col, value=valor)
+                    row_values[col - 1] = valor
+                col_desc = header_to_col.get('Descripción Movimiento', 5)
+                ws.cell(row=row_cursor, column=col_desc, value=descripcion)
+                row_values[col_desc - 1] = descripcion
                 if extra:
                     for hname, val in extra.items():
                         col_idx_h = header_to_col.get(hname)
                         if col_idx_h:
-                            ws.cell(row=row_cursor, column=col_idx_h, value=_truncate_number(val))
+                            valor = _truncate_number(val)
+                            ws.cell(row=row_cursor, column=col_idx_h, value=valor)
+                            row_values[col_idx_h - 1] = valor
+                sheet_json['rows'].append(row_values)
                 row_cursor += 1
 
             # Tipos 33 / 64: IVA + Proveedores + Gastos
@@ -597,6 +647,21 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
     redis_client.setex(
         f"rg_step1_meta:{usuario_id}:{task_id}", 300, json.dumps(metadata, ensure_ascii=False)
     )
+
+    if rendicion:
+        try:
+            rendicion.datos_archivo = {
+                'archivo_nombre': archivo_nombre,
+                'task_id': task_id,
+                'parametros_contables': parametros_contables,
+                'metadata': metadata,
+                'excel_json': excel_json,
+                'excel_tamano_bytes': len(excel_content),
+                'excel_content_type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            }
+            rendicion.save(update_fields=['datos_archivo', 'updated_at'])
+        except Exception as e:
+            print(f"Error actualizando datos_archivo en Rendicion {getattr(rendicion, 'id', 'desconocida')}: {str(e)}")
 
     return {
         'task_id': task_id,
