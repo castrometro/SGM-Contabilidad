@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useCapturaGastos } from "./hooks/useCapturaGastos";
 import { useAuth } from "../../hooks/useAuth";
@@ -44,26 +44,15 @@ const esServicioRindegastos = (nombre = "") => {
  * @param {React.ReactNode} children - Modal content
  */
 const Modal = ({ isOpen, onClose, title, children }) => {
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleEscape = (e) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, [isOpen, onClose]);
+  const modalRef = useRef(null);
 
   useEffect(() => {
     if (!isOpen) return;
 
-    // Focus trap: find all focusable elements
-    const modal = document.querySelector('[role="dialog"]');
+    const modal = modalRef.current;
     if (!modal) return;
 
+    // Find all focusable elements within the modal
     const focusableElements = modal.querySelectorAll(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     );
@@ -73,31 +62,39 @@ const Modal = ({ isOpen, onClose, title, children }) => {
     // Focus first element when modal opens
     firstElement?.focus();
 
-    const handleTab = (e) => {
-      if (e.key !== 'Tab') return;
+    const handleKeyDown = (e) => {
+      // Handle Escape key
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
 
-      if (e.shiftKey) {
-        if (document.activeElement === firstElement) {
-          e.preventDefault();
-          lastElement?.focus();
-        }
-      } else {
-        if (document.activeElement === lastElement) {
-          e.preventDefault();
-          firstElement?.focus();
+      // Handle Tab key for focus trap
+      if (e.key === 'Tab') {
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement?.focus();
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement?.focus();
+          }
         }
       }
     };
 
-    document.addEventListener('keydown', handleTab);
-    return () => document.removeEventListener('keydown', handleTab);
-  }, [isOpen]);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
       <div
+        ref={modalRef}
         className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto"
         role="dialog"
         aria-modal="true"
