@@ -7,7 +7,7 @@ from openpyxl import Workbook, load_workbook
 from django.test import TestCase
 from unittest.mock import patch, MagicMock
 
-from contabilidad.task_rindegastos import rg_procesar_step1_task
+from rindegastos.tasks import rg_procesar_step1_task
 
 
 class TestRindeGastosMontoExento(TestCase):

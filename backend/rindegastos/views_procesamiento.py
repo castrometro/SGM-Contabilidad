@@ -14,8 +14,7 @@ from contabilidad.tasks import (
     get_redis_client_db1,
     get_redis_client_db1_binary,
 )
-## Endpoint sincrónico eliminado: se fuerza uso de Celery
-from contabilidad.task_rindegastos import (
+from rindegastos.tasks import (
     reconstruir_excel_desde_json,
     rg_procesar_step1_task,
 )

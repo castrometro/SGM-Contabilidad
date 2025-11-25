@@ -102,7 +102,7 @@ export const rgLeerHeadersExcel = async (archivo) => {
 
   const token = localStorage.getItem('token');
 
-  const response = await fetch(`${API_BASE_URL}/rindegastos/leer-headers/`, {
+  const response = await fetch(`${API_RINDE_GASTOS_BASE_URL}/leer-headers/`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -156,7 +156,7 @@ export const rgIniciarStep1 = async (archivo, cuentasGlobales = {}, mapeoCC = {}
   formData.append('cuenta_gasto', cuentasGlobales.cuentaGasto || '');
 
   const token = localStorage.getItem('token');
-  const response = await fetch(`${API_BASE_URL}/rindegastos/step1/iniciar/`, {
+  const response = await fetch(`${API_RINDE_GASTOS_BASE_URL}/step1/iniciar/`, {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${token}` },
     body: formData,
@@ -174,7 +174,7 @@ export const rgIniciarStep1 = async (archivo, cuentasGlobales = {}, mapeoCC = {}
 
 export const rgEstadoStep1 = async (taskId) => {
   const token = localStorage.getItem('token');
-  const response = await fetch(`${API_BASE_URL}/rindegastos/step1/estado/${taskId}/`, {
+  const response = await fetch(`${API_RINDE_GASTOS_BASE_URL}/step1/estado/${taskId}/`, {
     method: 'GET',
     headers: { 'Authorization': `Bearer ${token}` },
   });
@@ -190,7 +190,7 @@ export const rgEstadoStep1 = async (taskId) => {
 
 export const rgDescargarStep1 = async (taskId, clienteId = null) => {
   const token = localStorage.getItem('token');
-  const baseUrl = `${API_BASE_URL}/rindegastos/step1/descargar/${taskId}/`;
+  const baseUrl = `${API_RINDE_GASTOS_BASE_URL}/step1/descargar/${taskId}/`;
   const query = clienteId ? `?cliente_id=${clienteId}` : '';
   const response = await fetch(`${baseUrl}${query}`, {
     method: 'GET',
