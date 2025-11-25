@@ -206,6 +206,15 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
             idx_fecha_docto = i
             break
 
+    # Índice Razón Social - Para incluir en Descripción Movimiento
+    posibles_razon_social = {'razon social', 'razón social', 'razonsocial', 'razon_social', 'nombre proveedor', 'proveedor'}
+    idx_razon_social = None
+    for i, h in enumerate(headers):
+        nombre_norm = str(h).strip().lower()
+        if nombre_norm in posibles_razon_social:
+            idx_razon_social = i
+            break
+
     cc_start, cc_end = _find_cc_range(headers)
     conocidos = ['PyC', 'PS', 'EB', 'CO', 'RE', 'TR', 'CF', 'LRC']
     cc_indices_conocidos = {str(h).strip(): i for i, h in enumerate(headers) if str(h).strip() in conocidos}
@@ -367,6 +376,12 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                     except:
                         fecha_docto = str(fecha_val) if fecha_val is not None else ""
 
+            # Extraer Razón Social para incluir en Descripción Movimiento
+            razon_social = ""
+            if idx_razon_social is not None and idx_razon_social < len(row_in):
+                razon_val = row_in[idx_razon_social]
+                razon_social = str(razon_val).strip() if razon_val is not None else ""
+
             monto_total_input = _parse_numeric(row_in[idx_monto_total]) if idx_monto_total is not None and idx_monto_total < len(row_in) else None
             monto_iva_rec_input = _parse_numeric(row_in[idx_monto_iva_rec]) if idx_monto_iva_rec is not None and idx_monto_iva_rec < len(row_in) else None
             # IVA: si no existe columna o valor, calcular 0.19 * neto (truncado)
@@ -422,7 +437,7 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                 except Exception:
                     return v
 
-            def write_row(descripcion, debe=None, haber=None, extra=None):
+            def write_row(descripcion_base, debe=None, haber=None, extra=None):
                 nonlocal row_cursor, row_counter
                 row_values = [None] * len(headers_salida)
                 
@@ -442,11 +457,24 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                     col = header_to_col.get('Monto al Haber Moneda Base', 4)
                     ws.cell(row=row_cursor, column=col, value=valor)
                     row_values[col - 1] = valor
+                
+                # Construir descripción: Tipo Documento + Numero Doc + Razón Social
+                tipo_doc_desc = extra.get('Tipo Documento', '') if extra else ''
+                numero_doc_desc = extra.get('Numero Doc', '') if extra else ''
+                razon_social_desc = extra.get('_razon_social', '') if extra else ''
+                
+                descripcion_final = f"{tipo_doc_desc} {numero_doc_desc} {razon_social_desc}".strip()
+                if not descripcion_final:  # Fallback a descripcion_base si no hay datos
+                    descripcion_final = descripcion_base
+                
                 col_desc = header_to_col.get('Descripción Movimiento', 5)
-                ws.cell(row=row_cursor, column=col_desc, value=descripcion)
-                row_values[col_desc - 1] = descripcion
+                ws.cell(row=row_cursor, column=col_desc, value=descripcion_final)
+                row_values[col_desc - 1] = descripcion_final
+                
                 if extra:
                     for hname, val in extra.items():
+                        if hname == '_razon_social':  # No escribir este campo auxiliar
+                            continue
                         col_idx_h = header_to_col.get(hname)
                         if col_idx_h:
                             valor = _truncate_number(val)
@@ -460,10 +488,11 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                 # Fila IVA
                 iva_truncado = trunc(iva_monto)
                 write_row(
-                    descripcion=f'IVA Doc {fila_original_idx}',
+                    descripcion_base=f'IVA Doc {fila_original_idx}',
                     debe=iva_truncado,
                     haber=None,
                     extra={
+                        '_razon_social': razon_social,
                         'Código Plan de Cuenta': cuentas_globales.get('iva'),
                         'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                         'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
@@ -497,10 +526,11 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                 for desc_gasto, debe_detalle, gasto_final, codigo_cc in gastos_truncados:
                     codigo_cc_final = mapeo_cc_param.get(codigo_cc, codigo_cc)
                     write_row(
-                        descripcion=desc_gasto,
+                        descripcion_base=desc_gasto,
                         debe=gasto_final,
                         haber=None,
                         extra={
+                        '_razon_social': razon_social,
                             'Código Centro de Costo': codigo_cc_final,
                             'Código Plan de Cuenta': cuentas_globales.get('gasto_default'),
                             'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
@@ -518,10 +548,11 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                 monto3 = iva_truncado
                 
                 write_row(
-                    descripcion=f'Proveedor Doc {fila_original_idx}',
+                    descripcion_base=f'Proveedor Doc {fila_original_idx}',
                     debe=None,
                     haber=trunc(monto_total),
                     extra={
+                        '_razon_social': razon_social,
                         'Monto 1 Detalle Libro': monto1,
                         'Monto 2 Detalle Libro': trunc(monto2) if monto2 else None,
                         'Monto 3 Detalle Libro': monto3,
@@ -560,10 +591,11 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                 for desc_gasto, debe_detalle, gasto_final, codigo_cc in gastos_truncados:
                     codigo_cc_final = mapeo_cc_param.get(codigo_cc, codigo_cc)
                     write_row(
-                        descripcion=desc_gasto,
+                        descripcion_base=desc_gasto,
                         debe=gasto_final,
                         haber=None,
                         extra={
+                        '_razon_social': razon_social,
                             'Código Centro de Costo': codigo_cc_final,
                             'Código Plan de Cuenta': cuentas_globales.get('gasto_default'),
                             'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
@@ -579,10 +611,11 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                 monto_total_truncado = trunc(monto_total) if monto_total is not None else suma_debe_final
                 
                 write_row(
-                    descripcion=f'Proveedor Doc {fila_original_idx}',
+                    descripcion_base=f'Proveedor Doc {fila_original_idx}',
                     debe=None,
                     haber=monto_total_truncado,
                     extra={
+                        '_razon_social': razon_social,
                         'Monto 2 Detalle Libro': suma_debe_final,
                         'Monto 3 Detalle Libro': None,
                         'Monto Suma Detalle Libro': suma_debe_final,
@@ -620,10 +653,11 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                 for desc_gasto, debe_detalle, gasto_final, codigo_cc in gastos_truncados:
                     codigo_cc_final = mapeo_cc_param.get(codigo_cc, codigo_cc)
                     write_row(
-                        descripcion=desc_gasto,
+                        descripcion_base=desc_gasto,
                         debe=gasto_final,
                         haber=None,
                         extra={
+                        '_razon_social': razon_social,
                             'Código Centro de Costo': codigo_cc_final,
                             'Código Plan de Cuenta': cuentas_globales.get('gasto_default'),
                             'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
@@ -639,10 +673,11 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                 monto_total_truncado = trunc(monto_total) if monto_total is not None else suma_debe_final
                 
                 write_row(
-                    descripcion=f'Proveedor Doc {fila_original_idx}',
+                    descripcion_base=f'Proveedor Doc {fila_original_idx}',
                     debe=None,
                     haber=monto_total_truncado,
                     extra={
+                        '_razon_social': razon_social,
                         'Código Plan de Cuenta': cuentas_globales.get('proveedores'),
                         'Codigo Auxiliar': rut_proveedor,
                         'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
@@ -659,10 +694,11 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                 # Fila IVA (invertido -> Haber)
                 iva_truncado = trunc(iva_monto)
                 write_row(
-                    descripcion=f'IVA Doc {fila_original_idx}',
+                    descripcion_base=f'IVA Doc {fila_original_idx}',
                     debe=None,
                     haber=iva_truncado,
                     extra={
+                        '_razon_social': razon_social,
                         'Código Plan de Cuenta': cuentas_globales.get('iva'),
                         'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                         'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
@@ -695,10 +731,11 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                 for desc_gasto, debe_detalle, gasto_final, codigo_cc in gastos_truncados:
                     codigo_cc_final = mapeo_cc_param.get(codigo_cc, codigo_cc)
                     write_row(
-                        descripcion=desc_gasto,
+                        descripcion_base=desc_gasto,
                         debe=None,
                         haber=gasto_final,
                         extra={
+                        '_razon_social': razon_social,
                             'Código Centro de Costo': codigo_cc_final,
                             'Código Plan de Cuenta': cuentas_globales.get('gasto_default'),
                             'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
@@ -716,10 +753,11 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                 monto3 = iva_truncado
                 
                 write_row(
-                    descripcion=f'Proveedor Doc {fila_original_idx}',
+                    descripcion_base=f'Proveedor Doc {fila_original_idx}',
                     debe=trunc(monto_total),
                     haber=None,
                     extra={
+                        '_razon_social': razon_social,
                         'Monto 1 Detalle Libro': monto1,
                         'Monto 2 Detalle Libro': None,
                         'Monto 3 Detalle Libro': monto3,
