@@ -7,7 +7,6 @@ from .models import (
     CentroCosto,
     CuentaGlobal,
     Rendicion,
-    RendicionMovimiento,
     TipoDocumento,
 )
 
@@ -60,27 +59,5 @@ class RendicionAdmin(admin.ModelAdmin):
         except IntegrityError:
             messages.error(
                 request,
-                'No se pueden eliminar rendiciones con movimientos asociados.',
+                'No se pueden eliminar las rendiciones seleccionadas.',
             )
-
-
-@admin.register(RendicionMovimiento)
-class RendicionMovimientoAdmin(admin.ModelAdmin):
-    list_display = ('id', 'rendicion')
-    list_select_related = ('rendicion',)
-    search_fields = ('rendicion__id',)
-    readonly_fields = ('rendicion',)
-    ordering = ('-id',)
-
-    def has_add_permission(self, request):
-        # No permitir crear movimientos manualmente desde admin
-        return False
-
-    def has_delete_permission(self, request, obj=None):
-        # Permitir eliminación solo en cascada desde Rendicion
-        # No bloquear delete_permission para superusers o staff
-        return request.user.is_superuser or request.user.is_staff
-    
-    def has_change_permission(self, request, obj=None):
-        # Solo lectura para usuarios normales
-        return False

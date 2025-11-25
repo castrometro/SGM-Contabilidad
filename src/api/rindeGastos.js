@@ -125,48 +125,6 @@ export const rgLeerHeadersExcel = async (archivo) => {
   return data;
 };
 
-export const rgProcesarStep1 = async (archivo) => {
-  const formData = new FormData();
-  formData.append('archivo', archivo);
-
-  console.log('[RG API] Enviando a procesar-step1:', {
-    nombre: archivo?.name,
-    size: archivo?.size,
-    type: archivo?.type,
-  });
-
-  const token = localStorage.getItem('token');
-  const response = await fetch(`${API_BASE_URL}/rindegastos/procesar-step1/`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${token}` },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    let errorText = 'Error en procesamiento step1 (RG)';
-    try {
-      const errorData = await response.json();
-      errorText = errorData.error || errorText;
-    } catch (_) {}
-    console.error('[RG API] Error response step1:', response.status, errorText);
-    throw new Error(errorText);
-  }
-
-  // Descargar blob
-  const blob = await response.blob();
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `rg_step1_${Date.now()}.xlsx`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(url);
-
-  console.log('[RG API] Descarga step1 completada');
-  return true;
-};
-
 // === Flujo asíncrono Step1 (Redis) ===
 export const rgIniciarStep1 = async (archivo, cuentasGlobales = {}, mapeoCC = {}, clienteServicioId = null) => {
   const formData = new FormData();

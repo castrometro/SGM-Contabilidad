@@ -1,7 +1,4 @@
 import { useState, useEffect } from "react";
-// Import original (legacy) captura masiva endpoints (podrían seguir usándose para otro flujo)
-import { subirArchivoGastos, consultarEstadoGastos, descargarResultadoGastos } from "../../../api/capturaGastos";
-// Import nuevos endpoints exclusivos RindeGastos (asíncrono con parametros_contables)
 import { rgLeerHeadersExcel, rgIniciarStep1, rgEstadoStep1, rgDescargarStep1 } from "../../../api/rindeGastos";
 import { CAPTURA_CONFIG, UI_MESSAGES } from "../config/capturaConfig";
 

@@ -81,21 +81,6 @@ def reconstruir_excel_desde_json(excel_json):
 
 
 @shared_task(bind=True)
-def rg_procesar_archivo_task(self, archivo_content, archivo_nombre, usuario_id, mapeo_cc=None, parametros_contables=None):
-    """
-    Tarea placeholder exclusiva de RindeGastos. Por ahora no procesa;
-    se implementará en fases siguientes.
-    """
-    # Simplemente devuelve un estado simulado
-    return {
-        'task_id': self.request.id,
-        'estado': 'no-implementado',
-        'archivo_nombre': archivo_nombre,
-        'mensaje': 'Placeholder RindeGastos: procesamiento no implementado aún'
-    }
-
-
-@shared_task(bind=True)
 def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, parametros_contables=None, cliente_servicio_id=None):
     """
     Genera Excel con hojas por grupo (Tipo Doc + cantidad de CC > 0) y guarda en Redis.
@@ -462,187 +447,286 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                 sheet_json['rows'].append(row_values)
                 row_cursor += 1
 
-            # Tipos 33 / 64: IVA + Proveedores + Gastos
+            # Tipos 33 / 64: IVA + Gastos + Proveedor (Proveedor al final)
             if tipo_doc_str in ['33', '64']:
                 # Fila IVA
+                iva_truncado = trunc(iva_monto)
                 write_row(
                     descripcion=f'IVA Doc {fila_original_idx}',
-                    debe=iva_monto,
+                    debe=iva_truncado,
                     haber=None,
                     extra={
                         'Código Plan de Cuenta': cuentas_globales.get('iva'),
                         'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                         'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                        'Numero': tipo_doc_valor,  # Issues #3 y #4
-                        'Tipo Documento': tipo_doc_valor,  # Issues #3 y #4
-                        'Numero Doc': folio  # Issues #3 y #4
+                        'Numero': tipo_doc_valor,
+                        'Tipo Documento': tipo_doc_valor,
+                        'Numero Doc': folio
                     }
                 )
-                # Fila Proveedores (usa IVA y suma gastos)
-                monto1 = suma_debe_gastos
-                monto2 = monto_exento if tipo_doc_str == '33' else 0.0  # Issue #174: Monto exento en Monto 2 Detalle para tipo 33
-                monto3 = iva_monto
-                write_row(
-                    descripcion=f'Proveedor Doc {fila_original_idx}',
-                    debe=None,
-                    haber=monto_total,
-                    extra={
-                        'Monto 1 Detalle Libro': monto1,
-                        'Monto 2 Detalle Libro': monto2,
-                        'Monto 3 Detalle Libro': monto3,
-                        'Monto Suma Detalle Libro': (monto1 if monto1 is not None else 0) + (monto2 if monto2 is not None else 0) + (monto3 if monto3 is not None else 0),
-                        'Código Plan de Cuenta': cuentas_globales.get('proveedores'),
-                        'Codigo Auxiliar': rut_proveedor,  # RUT Proveedor del input
-                        'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
-                        'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                        'Numero': tipo_doc_valor,  # Issues #3 y #4
-                        'Tipo Documento': tipo_doc_valor,  # Issues #3 y #4
-                        'Numero Doc': folio  # Issues #3 y #4
-                    }
-                )
-                # Filas de Gasto
-                for desc_gasto, debe_detalle, debe_moneda_base, codigo_cc in gastos_rows:
+                
+                # Filas de Gasto - Truncar cada una y ajustar la última para cuadratura
+                gastos_truncados = []
+                suma_gastos_truncados = 0
+                
+                for idx, (desc_gasto, debe_detalle, debe_moneda_base, codigo_cc) in enumerate(gastos_rows):
+                    gasto_truncado = trunc(debe_moneda_base)
+                    gastos_truncados.append((desc_gasto, debe_detalle, gasto_truncado, codigo_cc))
+                    suma_gastos_truncados += gasto_truncado
+                
+                # Ajuste de cuadratura: modificar el último gasto
+                # Debe total esperado = monto_total - iva
+                # Haber = monto_total (en Proveedor)
+                if gastos_truncados:
+                    debe_esperado = trunc(monto_total) - iva_truncado
+                    diferencia = debe_esperado - suma_gastos_truncados
+                    
+                    # Ajustar el último gasto
+                    ultimo_gasto = list(gastos_truncados[-1])
+                    ultimo_gasto[2] = ultimo_gasto[2] + diferencia  # Ajustar monto truncado
+                    gastos_truncados[-1] = tuple(ultimo_gasto)
+                
+                # Escribir gastos ajustados
+                for desc_gasto, debe_detalle, gasto_final, codigo_cc in gastos_truncados:
                     codigo_cc_final = mapeo_cc_param.get(codigo_cc, codigo_cc)
                     write_row(
                         descripcion=desc_gasto,
-                        debe=debe_moneda_base,  # Usa neto + exento para "Monto al Debe Moneda Base"
+                        debe=gasto_final,
                         haber=None,
                         extra={
                             'Código Centro de Costo': codigo_cc_final,
                             'Código Plan de Cuenta': cuentas_globales.get('gasto_default'),
                             'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                             'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                            'Numero': tipo_doc_valor,  # Issues #3 y #4
-                            'Tipo Documento': tipo_doc_valor,  # Issues #3 y #4
-                            'Numero Doc': folio  # Issues #3 y #4
+                            'Numero': tipo_doc_valor,
+                            'Tipo Documento': tipo_doc_valor,
+                            'Numero Doc': folio
                         }
                     )
+                
+                # Fila Proveedores AL FINAL (usa suma ajustada)
+                suma_debe_final = sum(g[2] for g in gastos_truncados) if gastos_truncados else 0
+                monto1 = suma_debe_final
+                monto2 = monto_exento if tipo_doc_str == '33' else 0.0
+                monto3 = iva_truncado
+                
+                write_row(
+                    descripcion=f'Proveedor Doc {fila_original_idx}',
+                    debe=None,
+                    haber=trunc(monto_total),
+                    extra={
+                        'Monto 1 Detalle Libro': monto1,
+                        'Monto 2 Detalle Libro': trunc(monto2) if monto2 else None,
+                        'Monto 3 Detalle Libro': monto3,
+                        'Monto Suma Detalle Libro': monto1 + (trunc(monto2) if monto2 else 0) + monto3,
+                        'Código Plan de Cuenta': cuentas_globales.get('proveedores'),
+                        'Codigo Auxiliar': rut_proveedor,
+                        'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
+                        'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
+                        'Numero': tipo_doc_valor,
+                        'Tipo Documento': tipo_doc_valor,
+                        'Numero Doc': folio
+                    }
+                )
             elif tipo_doc_str == '34':
-                # Tipo 34 (exento) sólo Proveedores + Gastos, y Monto 3 = vacío
-                monto1 = suma_debe_gastos
-                # Para tipo 34: Monto 2 = suma gastos, Monto 3 = vacío
-                write_row(
-                    descripcion=f'Proveedor Doc {fila_original_idx}',
-                    debe=None,
-                    haber=monto_total if monto_total is not None else suma_debe_gastos,
-                    extra={
-                        'Monto 2 Detalle Libro': monto1,  # Suma de gastos va en Monto 2
-                        'Monto 3 Detalle Libro': None,    # Monto 3 va vacío para tipo 34
-                        'Monto Suma Detalle Libro': monto1,  # Solo Monto 2 en la suma
-                        'Código Plan de Cuenta': cuentas_globales.get('proveedores'),
-                        'Codigo Auxiliar': rut_proveedor,  # RUT Proveedor del input
-                        'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
-                        'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                        'Numero': tipo_doc_valor,  # Issues #3 y #4
-                        'Tipo Documento': tipo_doc_valor,  # Issues #3 y #4
-                        'Numero Doc': folio  # Issues #3 y #4
-                    }
-                )
-                for desc_gasto, debe_detalle, debe_moneda_base, codigo_cc in gastos_rows:
+                # Tipo 34 (exento): Gastos + Proveedor (Proveedor al final)
+                # Truncar gastos y ajustar último para cuadratura
+                gastos_truncados = []
+                suma_gastos_truncados = 0
+                
+                for idx, (desc_gasto, debe_detalle, debe_moneda_base, codigo_cc) in enumerate(gastos_rows):
+                    gasto_truncado = trunc(debe_moneda_base)
+                    gastos_truncados.append((desc_gasto, debe_detalle, gasto_truncado, codigo_cc))
+                    suma_gastos_truncados += gasto_truncado
+                
+                # Ajuste de cuadratura
+                if gastos_truncados:
+                    debe_esperado = trunc(monto_total) if monto_total is not None else suma_gastos_truncados
+                    diferencia = debe_esperado - suma_gastos_truncados
+                    
+                    # Ajustar el último gasto
+                    ultimo_gasto = list(gastos_truncados[-1])
+                    ultimo_gasto[2] = ultimo_gasto[2] + diferencia
+                    gastos_truncados[-1] = tuple(ultimo_gasto)
+                
+                # Escribir gastos ajustados
+                for desc_gasto, debe_detalle, gasto_final, codigo_cc in gastos_truncados:
                     codigo_cc_final = mapeo_cc_param.get(codigo_cc, codigo_cc)
                     write_row(
                         descripcion=desc_gasto,
-                        debe=debe_moneda_base,  # Usa neto + exento para "Monto al Debe Moneda Base"
+                        debe=gasto_final,
                         haber=None,
                         extra={
                             'Código Centro de Costo': codigo_cc_final,
                             'Código Plan de Cuenta': cuentas_globales.get('gasto_default'),
                             'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                             'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                            'Numero': tipo_doc_valor,  # Issues #3 y #4
-                            'Tipo Documento': tipo_doc_valor,  # Issues #3 y #4
-                            'Numero Doc': folio  # Issues #3 y #4
+                            'Numero': tipo_doc_valor,
+                            'Tipo Documento': tipo_doc_valor,
+                            'Numero Doc': folio
                         }
                     )
+                
+                # Fila Proveedores AL FINAL
+                suma_debe_final = sum(g[2] for g in gastos_truncados) if gastos_truncados else 0
+                monto_total_truncado = trunc(monto_total) if monto_total is not None else suma_debe_final
+                
+                write_row(
+                    descripcion=f'Proveedor Doc {fila_original_idx}',
+                    debe=None,
+                    haber=monto_total_truncado,
+                    extra={
+                        'Monto 2 Detalle Libro': suma_debe_final,
+                        'Monto 3 Detalle Libro': None,
+                        'Monto Suma Detalle Libro': suma_debe_final,
+                        'Código Plan de Cuenta': cuentas_globales.get('proveedores'),
+                        'Codigo Auxiliar': rut_proveedor,
+                        'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
+                        'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
+                        'Numero': tipo_doc_valor,
+                        'Tipo Documento': tipo_doc_valor,
+                        'Numero Doc': folio
+                    }
+                )
             elif tipo_doc_str == 'COMO':
-                # Tipo COMO: igual que tipo 34 pero sin campos "Monto X Detalle Libro" ni "Monto Suma Detalle Libro"
-                write_row(
-                    descripcion=f'Proveedor Doc {fila_original_idx}',
-                    debe=None,
-                    haber=monto_total if monto_total is not None else suma_debe_gastos,
-                    extra={
-                        'Código Plan de Cuenta': cuentas_globales.get('proveedores'),
-                        'Codigo Auxiliar': rut_proveedor,  # RUT Proveedor del input
-                        'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
-                        'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                        'Numero': tipo_doc_valor,  # Issues #3 y #4
-                        'Tipo Documento': tipo_doc_valor,  # Issues #3 y #4
-                        'Numero Doc': folio  # Issues #3 y #4
-                    }
-                )
-                for desc_gasto, debe_detalle, debe_moneda_base, codigo_cc in gastos_rows:
+                # Tipo COMO: Gastos + Proveedor (sin Monto Detalle)
+                # Truncar gastos y ajustar último para cuadratura
+                gastos_truncados = []
+                suma_gastos_truncados = 0
+                
+                for idx, (desc_gasto, debe_detalle, debe_moneda_base, codigo_cc) in enumerate(gastos_rows):
+                    gasto_truncado = trunc(debe_moneda_base)
+                    gastos_truncados.append((desc_gasto, debe_detalle, gasto_truncado, codigo_cc))
+                    suma_gastos_truncados += gasto_truncado
+                
+                # Ajuste de cuadratura
+                if gastos_truncados:
+                    debe_esperado = trunc(monto_total) if monto_total is not None else suma_gastos_truncados
+                    diferencia = debe_esperado - suma_gastos_truncados
+                    
+                    # Ajustar el último gasto
+                    ultimo_gasto = list(gastos_truncados[-1])
+                    ultimo_gasto[2] = ultimo_gasto[2] + diferencia
+                    gastos_truncados[-1] = tuple(ultimo_gasto)
+                
+                # Escribir gastos ajustados
+                for desc_gasto, debe_detalle, gasto_final, codigo_cc in gastos_truncados:
                     codigo_cc_final = mapeo_cc_param.get(codigo_cc, codigo_cc)
                     write_row(
                         descripcion=desc_gasto,
-                        debe=debe_moneda_base,  # Usa neto + exento para "Monto al Debe Moneda Base"
+                        debe=gasto_final,
                         haber=None,
                         extra={
                             'Código Centro de Costo': codigo_cc_final,
                             'Código Plan de Cuenta': cuentas_globales.get('gasto_default'),
                             'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                             'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                            'Numero': tipo_doc_valor,  # Issues #3 y #4
-                            'Tipo Documento': tipo_doc_valor,  # Issues #3 y #4
-                            'Numero Doc': folio  # Issues #3 y #4
+                            'Numero': tipo_doc_valor,
+                            'Tipo Documento': tipo_doc_valor,
+                            'Numero Doc': folio
                         }
                     )
+                
+                # Fila Proveedores AL FINAL (sin campos Monto Detalle)
+                suma_debe_final = sum(g[2] for g in gastos_truncados) if gastos_truncados else 0
+                monto_total_truncado = trunc(monto_total) if monto_total is not None else suma_debe_final
+                
+                write_row(
+                    descripcion=f'Proveedor Doc {fila_original_idx}',
+                    debe=None,
+                    haber=monto_total_truncado,
+                    extra={
+                        'Código Plan de Cuenta': cuentas_globales.get('proveedores'),
+                        'Codigo Auxiliar': rut_proveedor,
+                        'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
+                        'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
+                        'Numero': tipo_doc_valor,
+                        'Tipo Documento': tipo_doc_valor,
+                        'Numero Doc': folio
+                    }
+                )
             elif tipo_doc_str == '61':
-                # Tipo 61: espejo de 33 (incluye IVA) invirtiendo Debe/Haber.
-                # En 33: IVA (Debe), Proveedor (Haber), Gastos (Debe)
-                # En 61: IVA (Haber), Proveedor (Debe), Gastos (Haber)
+                # Tipo 61: espejo invertido de 33 (Nota de Crédito)
+                # En 33: IVA (Debe), Gastos (Debe), Proveedor (Haber)
+                # En 61: IVA (Haber), Gastos (Haber), Proveedor (Debe)
+                
                 # Fila IVA (invertido -> Haber)
+                iva_truncado = trunc(iva_monto)
                 write_row(
                     descripcion=f'IVA Doc {fila_original_idx}',
                     debe=None,
-                    haber=iva_monto,
+                    haber=iva_truncado,
                     extra={
                         'Código Plan de Cuenta': cuentas_globales.get('iva'),
                         'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                         'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                        'Numero': tipo_doc_valor,  # Issues #3 y #4
-                        'Tipo Docto. Conciliación': tipo_doc_valor,  # Issues #3 y #4
-                        'Nro. Docto. Conciliación': folio  # Issues #3 y #4
+                        'Numero': tipo_doc_valor,
+                        'Tipo Docto. Conciliación': tipo_doc_valor,
+                        'Nro. Docto. Conciliación': folio
                     }
                 )
-                # Fila Proveedores (invertido -> Debe)
-                monto1 = suma_debe_gastos
-                monto2 = monto_exento if tipo_doc_str == '33' else 0.0  # Issue #174: Monto exento en Monto 2 Detalle para tipo 33
-                monto3 = iva_monto
-                write_row(
-                    descripcion=f'Proveedor Doc {fila_original_idx}',
-                    debe=monto_total if monto_total is not None else (monto1 + monto2 + monto3),
-                    haber=None,
-                    extra={
-                        'Monto 1 Detalle Libro': monto1,
-                        'Monto 2 Detalle Libro': monto2,
-                        'Monto 3 Detalle Libro': monto3,
-                        'Monto Suma Detalle Libro': (monto1 if monto1 is not None else 0) + (monto2 if monto2 is not None else 0) + (monto3 if monto3 is not None else 0),
-                        'Código Plan de Cuenta': cuentas_globales.get('proveedores'),
-                        'Codigo Auxiliar': rut_proveedor,  # RUT Proveedor del input
-                        'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
-                        'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                        'Numero': tipo_doc_valor,  # Issues #3 y #4
-                        'Tipo Documento': tipo_doc_valor,  # Issues #3 y #4
-                        'Numero Doc': folio  # Issues #3 y #4
-                    }
-                )
-                # Filas Gasto (invertidas -> Haber)
-                for desc_gasto, debe_detalle, debe_moneda_base, codigo_cc in gastos_rows:
+                
+                # Filas Gasto (invertidas -> Haber) - Truncar y ajustar última
+                gastos_truncados = []
+                suma_gastos_truncados = 0
+                
+                for idx, (desc_gasto, debe_detalle, debe_moneda_base, codigo_cc) in enumerate(gastos_rows):
+                    gasto_truncado = trunc(debe_moneda_base)
+                    gastos_truncados.append((desc_gasto, debe_detalle, gasto_truncado, codigo_cc))
+                    suma_gastos_truncados += gasto_truncado
+                
+                # Ajuste de cuadratura: Haber = monto_total (IVA + Gastos)
+                if gastos_truncados:
+                    haber_esperado = trunc(monto_total) - iva_truncado
+                    diferencia = haber_esperado - suma_gastos_truncados
+                    
+                    # Ajustar el último gasto
+                    ultimo_gasto = list(gastos_truncados[-1])
+                    ultimo_gasto[2] = ultimo_gasto[2] + diferencia
+                    gastos_truncados[-1] = tuple(ultimo_gasto)
+                
+                # Escribir gastos ajustados (al Haber)
+                for desc_gasto, debe_detalle, gasto_final, codigo_cc in gastos_truncados:
                     codigo_cc_final = mapeo_cc_param.get(codigo_cc, codigo_cc)
                     write_row(
                         descripcion=desc_gasto,
                         debe=None,
-                        haber=debe_moneda_base,  # Usa neto + exento para "Monto al Haber Moneda Base"
+                        haber=gasto_final,
                         extra={
                             'Código Centro de Costo': codigo_cc_final,
                             'Código Plan de Cuenta': cuentas_globales.get('gasto_default'),
                             'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                             'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                            'Numero': tipo_doc_valor,  # Issues #3 y #4
-                            'Tipo Documento': tipo_doc_valor,  # Issues #3 y #4
-                            'Numero Doc': folio  # Issues #3 y #4
+                            'Numero': tipo_doc_valor,
+                            'Tipo Documento': tipo_doc_valor,
+                            'Numero Doc': folio
                         }
                     )
+                
+                # Fila Proveedores AL FINAL (invertido -> Debe)
+                suma_haber_final = sum(g[2] for g in gastos_truncados) if gastos_truncados else 0
+                monto1 = suma_haber_final
+                monto2 = 0.0  # Notas de crédito no llevan monto exento
+                monto3 = iva_truncado
+                
+                write_row(
+                    descripcion=f'Proveedor Doc {fila_original_idx}',
+                    debe=trunc(monto_total),
+                    haber=None,
+                    extra={
+                        'Monto 1 Detalle Libro': monto1,
+                        'Monto 2 Detalle Libro': None,
+                        'Monto 3 Detalle Libro': monto3,
+                        'Monto Suma Detalle Libro': monto1 + monto3,
+                        'Código Plan de Cuenta': cuentas_globales.get('proveedores'),
+                        'Codigo Auxiliar': rut_proveedor,
+                        'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
+                        'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
+                        'Numero': tipo_doc_valor,
+                        'Tipo Documento': tipo_doc_valor,
+                        'Numero Doc': folio
+                    }
+                )
             else:
                 # Tipos desconocidos: de momento no se generan movimientos (queda hoja vacía)
                 pass
