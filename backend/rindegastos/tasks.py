@@ -285,6 +285,7 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
         for col_idx, h in enumerate(headers_salida, start=1):
             ws.cell(row=1, column=col_idx, value=h)
         row_cursor = 2
+        row_counter = 1  # Contador secuencial para columna NUMERO
 
         filas_grupo = grupos_filas.get(clave, [])
         # Mapeo header salida -> índice para escribir
@@ -422,8 +423,15 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                     return v
 
             def write_row(descripcion, debe=None, haber=None, extra=None):
-                nonlocal row_cursor
+                nonlocal row_cursor, row_counter
                 row_values = [None] * len(headers_salida)
+                
+                # Escribir contador secuencial en columna NUMERO (primera columna)
+                col_numero = header_to_col.get('Numero', 1)
+                ws.cell(row=row_cursor, column=col_numero, value=row_counter)
+                row_values[col_numero - 1] = row_counter
+                row_counter += 1
+                
                 if debe is not None:
                     valor = _truncate_number(debe)
                     col = header_to_col.get('Monto al Debe Moneda Base', 3)
@@ -459,7 +467,6 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                         'Código Plan de Cuenta': cuentas_globales.get('iva'),
                         'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                         'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                        'Numero': tipo_doc_valor,
                         'Tipo Documento': tipo_doc_valor,
                         'Numero Doc': folio
                     }
@@ -498,7 +505,7 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                             'Código Plan de Cuenta': cuentas_globales.get('gasto_default'),
                             'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                             'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                            'Numero': tipo_doc_valor,
+                            
                             'Tipo Documento': tipo_doc_valor,
                             'Numero Doc': folio
                         }
@@ -523,7 +530,7 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                         'Codigo Auxiliar': rut_proveedor,
                         'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                         'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                        'Numero': tipo_doc_valor,
+                        
                         'Tipo Documento': tipo_doc_valor,
                         'Numero Doc': folio
                     }
@@ -561,7 +568,7 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                             'Código Plan de Cuenta': cuentas_globales.get('gasto_default'),
                             'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                             'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                            'Numero': tipo_doc_valor,
+                            
                             'Tipo Documento': tipo_doc_valor,
                             'Numero Doc': folio
                         }
@@ -583,7 +590,7 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                         'Codigo Auxiliar': rut_proveedor,
                         'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                         'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                        'Numero': tipo_doc_valor,
+                        
                         'Tipo Documento': tipo_doc_valor,
                         'Numero Doc': folio
                     }
@@ -621,7 +628,7 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                             'Código Plan de Cuenta': cuentas_globales.get('gasto_default'),
                             'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                             'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                            'Numero': tipo_doc_valor,
+                            
                             'Tipo Documento': tipo_doc_valor,
                             'Numero Doc': folio
                         }
@@ -640,7 +647,6 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                         'Codigo Auxiliar': rut_proveedor,
                         'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                         'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                        'Numero': tipo_doc_valor,
                         'Tipo Documento': tipo_doc_valor,
                         'Numero Doc': folio
                     }
@@ -660,7 +666,7 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                         'Código Plan de Cuenta': cuentas_globales.get('iva'),
                         'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                         'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                        'Numero': tipo_doc_valor,
+                        
                         'Tipo Docto. Conciliación': tipo_doc_valor,
                         'Nro. Docto. Conciliación': folio
                     }
@@ -697,7 +703,7 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                             'Código Plan de Cuenta': cuentas_globales.get('gasto_default'),
                             'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                             'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                            'Numero': tipo_doc_valor,
+                            
                             'Tipo Documento': tipo_doc_valor,
                             'Numero Doc': folio
                         }
@@ -722,7 +728,6 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
                         'Codigo Auxiliar': rut_proveedor,
                         'Fecha Emisión Docto.(DD/MM/AAAA)': fecha_docto,
                         'Fecha Vencimiento Docto.(DD/MM/AAAA)': fecha_docto,
-                        'Numero': tipo_doc_valor,
                         'Tipo Documento': tipo_doc_valor,
                         'Numero Doc': folio
                     }
