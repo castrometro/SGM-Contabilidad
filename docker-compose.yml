@@ -71,22 +71,22 @@ services:
     depends_on:
       - redis
 
-  streamlit_conta:
-    build:
-      context: .
-      dockerfile: streamlit_conta/streamlit.Dockerfile
-    volumes:
-      - ./streamlit_conta:/app
-    ports:
-      - "8502:8502"
-    environment:
-      - PORT=8502
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - REDIS_DB_CONTABILIDAD=1
-    depends_on:
-      - redis
+  # streamlit_conta:
+  #   build:
+  #     context: .
+  #     dockerfile: streamlit_conta/streamlit.Dockerfile
+  #   volumes:
+  #     - ./streamlit_conta:/app
+  #   ports:
+  #     - "8502:8502"
+  #   environment:
+  #     - PORT=8502
+  #     - REDIS_HOST=redis
+  #     - REDIS_PORT=6379
+  #     - REDIS_PASSWORD=${REDIS_PASSWORD}
+  #     - REDIS_DB_CONTABILIDAD=1
+  #   depends_on:
+  #     - redis
 
 
 volumes:
