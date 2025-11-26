@@ -1,10 +1,11 @@
 // src/api/rindeGastos.js
+import { getAccessToken } from '../utils/tokenStorage';
 
 const API_BASE_URL = 'http://172.17.11.13:8000/api/contabilidad';
 const API_RINDE_GASTOS_BASE_URL = 'http://172.17.11.13:8000/api/rindegastos';
 
 const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
+  const token = getAccessToken();
   return token ? { 'Authorization': `Bearer ${token}` } : {};
 };
 

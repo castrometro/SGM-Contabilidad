@@ -1,15 +1,16 @@
 // src/components/Header.jsx
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import AreaIndicator from './AreaIndicator';
 import logo from '../assets/BDO_LOGO.png';
+import { clearAuthState } from '../utils/tokenStorage';
 
 export default function Header() {
   const { usuario } = useAuth();
   const navigate = useNavigate();
 
   const logout = () => {
-    localStorage.clear();
+    clearAuthState();
+    localStorage.removeItem('usuario');
     navigate('/');
   };
 
@@ -31,15 +32,6 @@ export default function Header() {
 
         {/* Usuario y acciones */}
         <div className="flex items-center gap-3 sm:gap-6 text-xs sm:text-sm text-gray-300">
-          {/* Indicador de áreas para gerentes */}
-          {usuario?.tipo_usuario === "gerente" && usuario?.areas && Array.isArray(usuario.areas) && usuario.areas.length > 0 && (
-            <AreaIndicator 
-              areas={usuario.areas} 
-              size="sm" 
-              className="hidden sm:flex border-l border-gray-600 pl-4"
-            />
-          )}
-          
           <div className="flex items-center gap-2 sm:gap-3">
             <span className="text-xs sm:text-sm">
               <span className="hidden sm:inline">Bienvenido(a), </span>

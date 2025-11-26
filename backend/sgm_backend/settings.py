@@ -17,13 +17,12 @@ from django.core.exceptions import ImproperlyConfigured
 import os
 
 # Redis y Celery Configuration
-REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD', '')
-if REDIS_PASSWORD:
-    REDIS_URL = f"redis://:{REDIS_PASSWORD}@redis:6379/0"
-    CACHE_REDIS_URL = f"redis://:{REDIS_PASSWORD}@redis:6379/1"
-else:
-    REDIS_URL = "redis://redis:6379/0"
-    CACHE_REDIS_URL = "redis://redis:6379/1"
+REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD')
+if not REDIS_PASSWORD:
+    raise ImproperlyConfigured("REDIS_PASSWORD environment variable is required for Redis access")
+
+REDIS_URL = f"redis://:{REDIS_PASSWORD}@redis:6379/0"
+CACHE_REDIS_URL = f"redis://:{REDIS_PASSWORD}@redis:6379/1"
 
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
@@ -67,6 +66,7 @@ INSTALLED_APPS = [
     'django.contrib.postgres',  # Para usar características avanzadas de PostgreSQL
     'django_extensions',  # Para usar características avanzadas de Django
     'rest_framework',
+    'rest_framework_simplejwt.token_blacklist',
     'api',
     'rindegastos.apps.RindeGastosConfig',
     'corsheaders',
@@ -246,8 +246,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=7),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
 }
 
 # Logging configuration

@@ -139,6 +139,62 @@ const StepCard = ({ number, title, subtitle, locked = false, children }) => {
 };
 
 /**
+ * Componente de paginación reutilizable
+ */
+const Pagination = ({ currentPage, totalItems, itemsPerPage, onPageChange }) => {
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  
+  if (totalPages <= 1) return null;
+
+  const pages = [];
+  for (let i = 1; i <= totalPages; i++) {
+    pages.push(i);
+  }
+
+  return (
+    <div className="flex items-center justify-center gap-2 mt-4">
+      <button
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+        className={`px-3 py-1 rounded text-sm ${
+          currentPage === 1
+            ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+            : "bg-gray-700 text-white hover:bg-gray-600"
+        }`}
+      >
+        Anterior
+      </button>
+      
+      {pages.map((page) => (
+        <button
+          key={page}
+          onClick={() => onPageChange(page)}
+          className={`px-3 py-1 rounded text-sm ${
+            currentPage === page
+              ? "bg-emerald-600 text-white"
+              : "bg-gray-700 text-white hover:bg-gray-600"
+          }`}
+        >
+          {page}
+        </button>
+      ))}
+      
+      <button
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        className={`px-3 py-1 rounded text-sm ${
+          currentPage === totalPages
+            ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+            : "bg-gray-700 text-white hover:bg-gray-600"
+        }`}
+      >
+        Siguiente
+      </button>
+    </div>
+  );
+};
+
+/**
  * Página principal de captura masiva de gastos
  * Refactorizada usando el patrón de feature folders
  */
@@ -216,8 +272,32 @@ const CapturaMasivaGastos = () => {
   const [busquedaTipos, setBusquedaTipos] = useState("");
   const [busquedaCuentas, setBusquedaCuentas] = useState("");
 
+  // Estados para paginación
+  const [paginaHistorial, setPaginaHistorial] = useState(1);
+  const [paginaCentros, setPaginaCentros] = useState(1);
+  const [paginaTipos, setPaginaTipos] = useState(1);
+  const [paginaCuentas, setPaginaCuentas] = useState(1);
+  const ITEMS_POR_PAGINA = 5;
+
   const { containers, buttons, alerts } = STYLES_CONFIG;
   const { steps } = CAPTURA_CONFIG;
+
+  // Resetear páginas cuando cambian las búsquedas
+  useEffect(() => {
+    setPaginaCentros(1);
+  }, [busquedaCentros]);
+
+  useEffect(() => {
+    setPaginaTipos(1);
+  }, [busquedaTipos]);
+
+  useEffect(() => {
+    setPaginaCuentas(1);
+  }, [busquedaCuentas]);
+
+  useEffect(() => {
+    setPaginaHistorial(1);
+  }, [activeTab]);
 
   useEffect(() => {
     let active = true;
@@ -570,7 +650,7 @@ const CapturaMasivaGastos = () => {
     if (servicioNoDisponible) {
       return (
         <div className="bg-amber-900/20 border border-amber-700 rounded-lg p-4 text-amber-100">
-          No se encontró el servicio RindeGastos para este cliente. Solicita la activación para ver el historial.
+          Servicio RindeGastos no Disponible, contactar con soporte: pablo.castro@bdo.cl
         </div>
       );
     }
@@ -595,6 +675,18 @@ const CapturaMasivaGastos = () => {
       );
     }
 
+    // Ordenar por fecha (más reciente primero)
+    const rendicionesOrdenadas = [...rendiciones].sort((a, b) => {
+      const fechaA = new Date(a.fecha_ejecucion || a.created_at || 0);
+      const fechaB = new Date(b.fecha_ejecucion || b.created_at || 0);
+      return fechaB - fechaA;
+    });
+
+    // Paginación
+    const inicio = (paginaHistorial - 1) * ITEMS_POR_PAGINA;
+    const fin = inicio + ITEMS_POR_PAGINA;
+    const rendicionesPaginadas = rendicionesOrdenadas.slice(inicio, fin);
+
     return (
       <div className="bg-gray-800 border border-gray-700 rounded-lg">
         <div className="overflow-x-auto">
@@ -609,7 +701,7 @@ const CapturaMasivaGastos = () => {
               </tr>
             </thead>
             <tbody>
-              {rendiciones.map((rendicion) => (
+              {rendicionesPaginadas.map((rendicion) => (
                 <tr key={rendicion.id} className="border-b border-gray-700 hover:bg-gray-900/40">
                   <td className="px-4 py-3 text-white font-medium">#{rendicion.id}</td>
                   <td className="px-4 py-3 text-gray-300">{formatearFecha(rendicion.fecha_ejecucion)}</td>
@@ -638,6 +730,12 @@ const CapturaMasivaGastos = () => {
             </tbody>
           </table>
         </div>
+        <Pagination
+          currentPage={paginaHistorial}
+          totalItems={rendicionesOrdenadas.length}
+          itemsPerPage={ITEMS_POR_PAGINA}
+          onPageChange={setPaginaHistorial}
+        />
       </div>
     );
   };
@@ -671,6 +769,34 @@ const CapturaMasivaGastos = () => {
       });
       return;
     }
+
+    // Validar duplicados
+    const codigoNormalizado = centroForm.codigo?.trim().toLowerCase();
+    const apodoNormalizado = centroForm.apodo?.trim().toLowerCase();
+    
+    const duplicado = configuracion.centrosCosto.find(cc => {
+      // Si estamos editando, excluir el registro actual
+      if (editingCentroId && cc.id === editingCentroId) return false;
+      
+      const codigoExistente = cc.codigo?.trim().toLowerCase();
+      const apodoExistente = cc.apodo?.trim().toLowerCase();
+      
+      // Verificar si hay duplicado por código o apodo
+      if (codigoNormalizado && codigoExistente === codigoNormalizado) return true;
+      if (apodoNormalizado && apodoExistente === apodoNormalizado) return true;
+      
+      return false;
+    });
+
+    if (duplicado) {
+      const campo = duplicado.codigo?.trim().toLowerCase() === codigoNormalizado ? 'código' : 'nombre';
+      actualizarEstadoGuardado("centros", {
+        error: `Ya existe un centro de costo con ese ${campo}: "${duplicado.apodo || duplicado.codigo}"`,
+        mensaje: ""
+      });
+      return;
+    }
+
     try {
       actualizarEstadoGuardado("centros", { guardando: true, error: "", mensaje: "" });
       const payload = {
@@ -706,6 +832,34 @@ const CapturaMasivaGastos = () => {
       });
       return;
     }
+
+    // Validar duplicados
+    const codigoNormalizado = tipoDocForm.codigo?.trim().toLowerCase();
+    const nombreNormalizado = tipoDocForm.nombre?.trim().toLowerCase();
+    
+    const duplicado = configuracion.tiposDocumento.find(tipo => {
+      // Si estamos editando, excluir el registro actual
+      if (editingTipoId && tipo.id === editingTipoId) return false;
+      
+      const codigoExistente = tipo.codigo?.trim().toLowerCase();
+      const nombreExistente = tipo.nombre?.trim().toLowerCase();
+      
+      // Verificar si hay duplicado por código o nombre
+      if (codigoNormalizado && codigoExistente === codigoNormalizado) return true;
+      if (nombreNormalizado && nombreExistente === nombreNormalizado) return true;
+      
+      return false;
+    });
+
+    if (duplicado) {
+      const campo = duplicado.codigo?.trim().toLowerCase() === codigoNormalizado ? 'código' : 'nombre';
+      actualizarEstadoGuardado("tipos", {
+        error: `Ya existe un tipo de documento con ese ${campo}: "${duplicado.nombre || duplicado.codigo}"`,
+        mensaje: ""
+      });
+      return;
+    }
+
     try {
       actualizarEstadoGuardado("tipos", { guardando: true, error: "", mensaje: "" });
       const payload = { nombre: tipoDocForm.nombre, codigo: tipoDocForm.codigo };
@@ -737,6 +891,28 @@ const CapturaMasivaGastos = () => {
       });
       return;
     }
+
+    // Validar duplicados - Una cuenta con el mismo código NO puede existir independientemente del tipo
+    const codigoNormalizado = cuentaGlobalForm.codigo?.trim().toLowerCase();
+    
+    const duplicado = configuracion.cuentasGlobales.find(cuenta => {
+      // Si estamos editando, excluir el registro actual
+      if (editingCuentaId && cuenta.id === editingCuentaId) return false;
+      
+      const codigoExistente = cuenta.codigo?.trim().toLowerCase();
+      
+      // Verificar si hay duplicado por código (sin importar el tipo)
+      return codigoNormalizado && codigoExistente === codigoNormalizado;
+    });
+
+    if (duplicado) {
+      actualizarEstadoGuardado("cuentas", {
+        error: `Ya existe una cuenta ${duplicado.tipo} con el código "${duplicado.codigo}". No se pueden repetir códigos aunque sean de diferentes tipos.`,
+        mensaje: ""
+      });
+      return;
+    }
+
     try {
       actualizarEstadoGuardado("cuentas", { guardando: true, error: "", mensaje: "" });
       const payload = {
@@ -900,7 +1076,7 @@ const CapturaMasivaGastos = () => {
     if (servicioNoDisponible) {
       return (
         <div className="bg-amber-900/20 border border-amber-700 rounded-lg p-4 text-amber-100">
-          Activa RindeGastos para este cliente para ver sus configuraciones.
+          Servicio RindeGastos no Disponible, contactar con soporte: pablo.castro@bdo.cl
         </div>
       );
     }
@@ -934,6 +1110,35 @@ const CapturaMasivaGastos = () => {
       c.codigo?.toLowerCase().includes(busquedaCuentas.toLowerCase()) ||
       c.tipo?.toLowerCase().includes(busquedaCuentas.toLowerCase())
     );
+
+    // Ordenar por fecha de creación/actualización (más reciente primero)
+    const centrosOrdenados = [...centrosFiltrados].sort((a, b) => {
+      const fechaA = new Date(a.updated_at || a.created_at || 0);
+      const fechaB = new Date(b.updated_at || b.created_at || 0);
+      return fechaB - fechaA;
+    });
+
+    const tiposOrdenados = [...tiposFiltrados].sort((a, b) => {
+      const fechaA = new Date(a.updated_at || a.created_at || 0);
+      const fechaB = new Date(b.updated_at || b.created_at || 0);
+      return fechaB - fechaA;
+    });
+
+    const cuentasOrdenadas = [...cuentasFiltradas].sort((a, b) => {
+      const fechaA = new Date(a.updated_at || a.created_at || 0);
+      const fechaB = new Date(b.updated_at || b.created_at || 0);
+      return fechaB - fechaA;
+    });
+
+    // Paginación
+    const inicioCentros = (paginaCentros - 1) * ITEMS_POR_PAGINA;
+    const centrosPaginados = centrosOrdenados.slice(inicioCentros, inicioCentros + ITEMS_POR_PAGINA);
+
+    const inicioTipos = (paginaTipos - 1) * ITEMS_POR_PAGINA;
+    const tiposPaginados = tiposOrdenados.slice(inicioTipos, inicioTipos + ITEMS_POR_PAGINA);
+
+    const inicioCuentas = (paginaCuentas - 1) * ITEMS_POR_PAGINA;
+    const cuentasPaginadas = cuentasOrdenadas.slice(inicioCuentas, inicioCuentas + ITEMS_POR_PAGINA);
 
     const seccionesConfiguracion = {
       centros: {
@@ -991,50 +1196,58 @@ const CapturaMasivaGastos = () => {
               </button>
             </div>
 
-            {centrosFiltrados.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead className="text-xs uppercase bg-gray-900/60 text-gray-400">
-                    <tr>
-                      <th className="px-4 py-3">Nombre</th>
-                      <th className="px-4 py-3">Código</th>
-                      <th className="px-4 py-3">Activo</th>
-                      <th className="px-4 py-3">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {centrosFiltrados.map((cc) => (
-                      <tr key={cc.id} className="border-b border-gray-700 hover:bg-gray-900/40">
-                        <td className="px-4 py-3 text-white font-medium">{cc.apodo}</td>
-                        <td className="px-4 py-3 text-gray-300">{cc.codigo || "-"}</td>
-                        <td className="px-4 py-3">
-                          <span className={`text-xs px-2 py-1 rounded ${cc.activo ? "bg-emerald-500/10 text-emerald-200" : "bg-gray-700 text-gray-300"}`}>
-                            {cc.activo ? "Sí" : "No"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => abrirModalCentro(cc)}
-                              className="text-xs text-emerald-300 hover:text-emerald-200 underline"
-                              disabled={guardandoCentros}
-                            >
-                              Editar
-                            </button>
-                            <button
-                              onClick={() => handleEliminarCentro(cc.id)}
-                              className="text-xs text-red-300 hover:text-red-200 underline"
-                              disabled={guardandoCentros}
-                            >
-                              Eliminar
-                            </button>
-                          </div>
-                        </td>
+            {centrosOrdenados.length > 0 ? (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="text-xs uppercase bg-gray-900/60 text-gray-400">
+                      <tr>
+                        <th className="px-4 py-3">Nombre</th>
+                        <th className="px-4 py-3">Código</th>
+                        <th className="px-4 py-3">Activo</th>
+                        <th className="px-4 py-3">Acciones</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {centrosPaginados.map((cc) => (
+                        <tr key={cc.id} className="border-b border-gray-700 hover:bg-gray-900/40">
+                          <td className="px-4 py-3 text-white font-medium">{cc.apodo}</td>
+                          <td className="px-4 py-3 text-gray-300">{cc.codigo || "-"}</td>
+                          <td className="px-4 py-3">
+                            <span className={`text-xs px-2 py-1 rounded ${cc.activo ? "bg-emerald-500/10 text-emerald-200" : "bg-gray-700 text-gray-300"}`}>
+                              {cc.activo ? "Sí" : "No"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => abrirModalCentro(cc)}
+                                className="text-xs text-emerald-300 hover:text-emerald-200 underline"
+                                disabled={guardandoCentros}
+                              >
+                                Editar
+                              </button>
+                              <button
+                                onClick={() => handleEliminarCentro(cc.id)}
+                                className="text-xs text-red-300 hover:text-red-200 underline"
+                                disabled={guardandoCentros}
+                              >
+                                Eliminar
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <Pagination
+                  currentPage={paginaCentros}
+                  totalItems={centrosOrdenados.length}
+                  itemsPerPage={ITEMS_POR_PAGINA}
+                  onPageChange={setPaginaCentros}
+                />
+              </>
             ) : (
               <p className="text-gray-400 text-sm text-center py-4">
                 {busquedaCentros ? "No se encontraron centros de costo con ese criterio" : "No hay centros de costo configurados"}
@@ -1069,44 +1282,52 @@ const CapturaMasivaGastos = () => {
               </button>
             </div>
 
-            {tiposFiltrados.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead className="text-xs uppercase bg-gray-900/60 text-gray-400">
-                    <tr>
-                      <th className="px-4 py-3">Nombre</th>
-                      <th className="px-4 py-3">Código</th>
-                      <th className="px-4 py-3">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tiposFiltrados.map((doc) => (
-                      <tr key={doc.id} className="border-b border-gray-700 hover:bg-gray-900/40">
-                        <td className="px-4 py-3 text-white font-medium">{doc.nombre}</td>
-                        <td className="px-4 py-3 text-gray-300">{doc.codigo}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => abrirModalTipo(doc)}
-                              className="text-xs text-blue-300 hover:text-blue-200 underline"
-                              disabled={guardandoTipos}
-                            >
-                              Editar
-                            </button>
-                            <button
-                              onClick={() => handleEliminarTipo(doc.id)}
-                              className="text-xs text-red-300 hover:text-red-200 underline"
-                              disabled={guardandoTipos}
-                            >
-                              Eliminar
-                            </button>
-                          </div>
-                        </td>
+            {tiposOrdenados.length > 0 ? (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="text-xs uppercase bg-gray-900/60 text-gray-400">
+                      <tr>
+                        <th className="px-4 py-3">Nombre</th>
+                        <th className="px-4 py-3">Código</th>
+                        <th className="px-4 py-3">Acciones</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {tiposPaginados.map((doc) => (
+                        <tr key={doc.id} className="border-b border-gray-700 hover:bg-gray-900/40">
+                          <td className="px-4 py-3 text-white font-medium">{doc.nombre}</td>
+                          <td className="px-4 py-3 text-gray-300">{doc.codigo}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => abrirModalTipo(doc)}
+                                className="text-xs text-blue-300 hover:text-blue-200 underline"
+                                disabled={guardandoTipos}
+                              >
+                                Editar
+                              </button>
+                              <button
+                                onClick={() => handleEliminarTipo(doc.id)}
+                                className="text-xs text-red-300 hover:text-red-200 underline"
+                                disabled={guardandoTipos}
+                              >
+                                Eliminar
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <Pagination
+                  currentPage={paginaTipos}
+                  totalItems={tiposOrdenados.length}
+                  itemsPerPage={ITEMS_POR_PAGINA}
+                  onPageChange={setPaginaTipos}
+                />
+              </>
             ) : (
               <p className="text-gray-400 text-sm text-center py-4">
                 {busquedaTipos ? "No se encontraron tipos de documento con ese criterio" : "No hay tipos de documento registrados"}
@@ -1140,44 +1361,52 @@ const CapturaMasivaGastos = () => {
             </button>
           </div>
 
-          {cuentasFiltradas.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="text-xs uppercase bg-gray-900/60 text-gray-400">
-                  <tr>
-                    <th className="px-4 py-3">Código</th>
-                    <th className="px-4 py-3">Tipo</th>
-                    <th className="px-4 py-3">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cuentasFiltradas.map((cuenta) => (
-                    <tr key={cuenta.id} className="border-b border-gray-700 hover:bg-gray-900/40">
-                      <td className="px-4 py-3 text-white font-medium">{cuenta.codigo}</td>
-                      <td className="px-4 py-3 text-gray-300">{cuenta.tipo}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => abrirModalCuenta(cuenta)}
-                            className="text-xs text-purple-300 hover:text-purple-200 underline"
-                            disabled={guardandoCuentas}
-                          >
-                            Editar
-                          </button>
-                          <button
-                            onClick={() => handleEliminarCuenta(cuenta.id)}
-                            className="text-xs text-red-300 hover:text-red-200 underline"
-                            disabled={guardandoCuentas}
-                          >
-                            Eliminar
-                          </button>
-                        </div>
-                      </td>
+          {cuentasOrdenadas.length > 0 ? (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="text-xs uppercase bg-gray-900/60 text-gray-400">
+                    <tr>
+                      <th className="px-4 py-3">Código</th>
+                      <th className="px-4 py-3">Tipo</th>
+                      <th className="px-4 py-3">Acciones</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {cuentasPaginadas.map((cuenta) => (
+                      <tr key={cuenta.id} className="border-b border-gray-700 hover:bg-gray-900/40">
+                        <td className="px-4 py-3 text-white font-medium">{cuenta.codigo}</td>
+                        <td className="px-4 py-3 text-gray-300">{cuenta.tipo}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => abrirModalCuenta(cuenta)}
+                              className="text-xs text-purple-300 hover:text-purple-200 underline"
+                              disabled={guardandoCuentas}
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => handleEliminarCuenta(cuenta.id)}
+                              className="text-xs text-red-300 hover:text-red-200 underline"
+                              disabled={guardandoCuentas}
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <Pagination
+                currentPage={paginaCuentas}
+                totalItems={cuentasOrdenadas.length}
+                itemsPerPage={ITEMS_POR_PAGINA}
+                onPageChange={setPaginaCuentas}
+              />
+            </>
           ) : (
             <p className="text-gray-400 text-sm text-center py-4">
               {busquedaCuentas ? "No se encontraron cuentas globales con ese criterio" : "No hay cuentas globales definidas"}
@@ -1218,6 +1447,11 @@ const CapturaMasivaGastos = () => {
           title={editingCentroId ? "Editar Centro de Costo" : "Crear Centro de Costo"}
         >
           <form className="space-y-4" onSubmit={handleGuardarCentro}>
+            {estadoGuardado.centros.error && (
+              <div className="bg-red-900/30 border border-red-700 text-red-100 rounded-md px-4 py-3 text-sm">
+                {estadoGuardado.centros.error}
+              </div>
+            )}
             <div>
               <label className="block text-xs text-gray-400 mb-1">Nombre / apodo</label>
               <input
@@ -1275,6 +1509,11 @@ const CapturaMasivaGastos = () => {
           title={editingTipoId ? "Editar Tipo de Documento" : "Crear Tipo de Documento"}
         >
           <form className="space-y-4" onSubmit={handleGuardarTipo}>
+            {estadoGuardado.tipos.error && (
+              <div className="bg-red-900/30 border border-red-700 text-red-100 rounded-md px-4 py-3 text-sm">
+                {estadoGuardado.tipos.error}
+              </div>
+            )}
             <div>
               <label className="block text-xs text-gray-400 mb-1">Nombre</label>
               <input
@@ -1322,6 +1561,11 @@ const CapturaMasivaGastos = () => {
           title={editingCuentaId ? "Editar Cuenta Global" : "Crear Cuenta Global"}
         >
           <form className="space-y-4" onSubmit={handleGuardarCuenta}>
+            {estadoGuardado.cuentas.error && (
+              <div className="bg-red-900/30 border border-red-700 text-red-100 rounded-md px-4 py-3 text-sm">
+                {estadoGuardado.cuentas.error}
+              </div>
+            )}
             <div>
               <label className="block text-xs text-gray-400 mb-1">Código</label>
               <input
@@ -1454,16 +1698,15 @@ const CapturaMasivaGastos = () => {
         </div>
 
         {activeTab === "rendir" && (
-          <div className="grid lg:grid-cols-4 gap-6 items-start">
-            <div className="lg:col-span-3 space-y-6">
-              {servicioNoDisponible && (
-                <div className="bg-amber-900/30 border border-amber-700 text-amber-100 rounded-md px-4 py-3 text-sm">
-                  <p className="font-semibold">Servicio no disponible, contactar con el administrador.</p>
-                  {errorServicio && <p className="text-amber-50/80 text-xs mt-1">Detalle: {errorServicio}</p>}
-                </div>
-              )}
-
-              <StepCard
+          <>
+            {servicioNoDisponible ? (
+              <div className="bg-amber-900/20 border border-amber-700 rounded-lg p-4 text-amber-100">
+                Servicio RindeGastos no Disponible, contactar con soporte: pablo.castro@bdo.cl
+              </div>
+            ) : (
+              <div className="grid lg:grid-cols-4 gap-6 items-start">
+                <div className="lg:col-span-3 space-y-6">
+                  <StepCard
                 number={1}
                 title="Descargar plantilla"
                 subtitle="Obtén el formato correcto antes de cargar tus gastos"
@@ -1593,6 +1836,8 @@ const CapturaMasivaGastos = () => {
               <ErrorSection error={error} />
             </div>
           </div>
+            )}
+          </>
         )}
 
         {activeTab === "historial" && <div className="space-y-4">{renderHistorial()}</div>}
