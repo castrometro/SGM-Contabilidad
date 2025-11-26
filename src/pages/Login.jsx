@@ -123,7 +123,7 @@ const Login = () => {
         {/* Footer */}
         <footer className="relative z-10 py-4 sm:py-6 text-center text-gray-400 text-xs sm:text-sm">
           <p>© {new Date().getFullYear()} BDO Chile. Todos los derechos reservados.</p>
-          <p className="mt-1">Sistema de Gestión SGM - Contabilidad & Nómina</p>
+          <p className="mt-1">Sistema de Gestión SGM - Contabilidad</p>
         </footer>
       </div>
     </div>
