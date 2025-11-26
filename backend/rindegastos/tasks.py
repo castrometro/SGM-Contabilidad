@@ -9,12 +9,7 @@ from api.models import ServicioCliente, Usuario
 from api.views import get_redis_client_db1, get_redis_client_db1_binary
 from rindegastos.excel_headers import get_headers_salida_rindegastos
 from rindegastos.models import Rendicion, TipoDocumento
-
-
-def _normalize(text):
-    if text is None:
-        return ""
-    return str(text).strip()
+from rindegastos.utils import normalize_text
 
 
 def _parse_numeric(value):
@@ -36,11 +31,11 @@ def _parse_numeric(value):
 def _find_cc_range(headers):
     last_nombre_idx = -1
     for i, h in enumerate(headers):
-        if 'nombre cuenta' in str(h).lower():
+        if 'nombre cuenta' in normalize_text(h):
             last_nombre_idx = i
     fecha_ap_idx = None
     for i, h in enumerate(headers):
-        hn = str(h).lower()
+        hn = normalize_text(h)
         if 'fecha' in hn and 'aprobacion' in hn:
             fecha_ap_idx = i
             break

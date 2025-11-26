@@ -3,7 +3,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 import json
-import unicodedata
 from io import BytesIO
 
 from django.http import HttpResponse
@@ -16,6 +15,7 @@ from rindegastos.tasks import (
     rg_procesar_step1_task,
 )
 from rindegastos.models import Rendicion
+from rindegastos.utils import normalize_text
 
 
 def _extract_cliente_id(request):
@@ -41,16 +41,6 @@ def _user_has_rindegastos(user, cliente_id=None):
         return False
 
     return base_qs.exists()
-
-
-def _normalize(text):
-    if text is None:
-        return ""
-    if not isinstance(text, str):
-        text = str(text)
-    text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
-    return text.strip().lower()
-
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -82,13 +72,13 @@ def leer_headers_excel_rindegastos(request):
         # Última columna que contiene "Nombre cuenta"
         last_nombre_idx = -1
         for i, h in enumerate(headers):
-            if 'nombre cuenta' in _normalize(h):
+            if 'nombre cuenta' in normalize_text(h):
                 last_nombre_idx = i
 
         # Columna de "Fecha aprobacion"
         fecha_ap_idx = None
         for i, h in enumerate(headers):
-            hn = _normalize(h)
+            hn = normalize_text(h)
             if 'fecha' in hn and 'aprobacion' in hn:
                 fecha_ap_idx = i
                 break
@@ -126,11 +116,11 @@ def _find_cc_range(headers):
     Retorna (start_idx, end_idx). Si no hay coincidencia válida, retorna (None, None)."""
     last_nombre_idx = -1
     for i, h in enumerate(headers):
-        if 'nombre cuenta' in _normalize(h):
+        if 'nombre cuenta' in normalize_text(h):
             last_nombre_idx = i
     fecha_ap_idx = None
     for i, h in enumerate(headers):
-        hn = _normalize(h)
+        hn = normalize_text(h)
         if 'fecha' in hn and 'aprobacion' in hn:
             fecha_ap_idx = i
             break
