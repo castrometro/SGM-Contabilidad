@@ -3,13 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import AreaIndicator from './AreaIndicator';
 import logo from '../assets/BDO_LOGO.png';
+import { clearAuthState } from '../utils/tokenStorage';
 
 export default function Header() {
   const { usuario } = useAuth();
   const navigate = useNavigate();
 
   const logout = () => {
-    localStorage.clear();
+    clearAuthState();
+    localStorage.removeItem('usuario');
     navigate('/');
   };
 

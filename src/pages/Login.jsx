@@ -3,6 +3,11 @@ import Header_login from "../components/Header_login";
 import { useNavigate } from "react-router-dom";
 import { loginUsuario, obtenerUsuario } from "../api/auth";
 import { useEffect, useState } from "react";
+import {
+  clearAuthState,
+  getAccessToken,
+  persistTokens,
+} from "../utils/tokenStorage";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -12,7 +17,7 @@ const Login = () => {
 
   useEffect(() => {
     const validarSesion = async () => {
-      const token = localStorage.getItem("token");
+      const token = getAccessToken();
       if (!token) {
         setIsCheckingSession(false);
         return;
@@ -24,7 +29,7 @@ const Login = () => {
         navigate("/menu");
       } catch (error) {
         console.warn("Token inválido o expirado, debe iniciar sesión");
-        localStorage.removeItem("token");
+        clearAuthState();
         localStorage.removeItem("usuario");
         setIsCheckingSession(false);
       }
@@ -39,17 +44,11 @@ const Login = () => {
 
     try {
       const result = await loginUsuario(correo, password);
-      localStorage.setItem("token", result.access);
-
-      // Guardar refresh token si existe
-      if (result.refresh) {
-        localStorage.setItem("refreshToken", result.refresh);
-      }
-
-      // Si el usuario marcó "recordar", guardar preferencia
-      if (recordar) {
-        localStorage.setItem("recordarSesion", "true");
-      }
+      persistTokens({
+        accessToken: result.access,
+        refreshToken: result.refresh,
+        remember: recordar,
+      });
 
       const usuario = await obtenerUsuario();
       localStorage.setItem("usuario", JSON.stringify(usuario));
