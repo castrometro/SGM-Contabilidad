@@ -769,6 +769,34 @@ const CapturaMasivaGastos = () => {
       });
       return;
     }
+
+    // Validar duplicados
+    const codigoNormalizado = centroForm.codigo?.trim().toLowerCase();
+    const apodoNormalizado = centroForm.apodo?.trim().toLowerCase();
+    
+    const duplicado = configuracion.centrosCosto.find(cc => {
+      // Si estamos editando, excluir el registro actual
+      if (editingCentroId && cc.id === editingCentroId) return false;
+      
+      const codigoExistente = cc.codigo?.trim().toLowerCase();
+      const apodoExistente = cc.apodo?.trim().toLowerCase();
+      
+      // Verificar si hay duplicado por código o apodo
+      if (codigoNormalizado && codigoExistente === codigoNormalizado) return true;
+      if (apodoNormalizado && apodoExistente === apodoNormalizado) return true;
+      
+      return false;
+    });
+
+    if (duplicado) {
+      const campo = duplicado.codigo?.trim().toLowerCase() === codigoNormalizado ? 'código' : 'nombre';
+      actualizarEstadoGuardado("centros", {
+        error: `Ya existe un centro de costo con ese ${campo}: "${duplicado.apodo || duplicado.codigo}"`,
+        mensaje: ""
+      });
+      return;
+    }
+
     try {
       actualizarEstadoGuardado("centros", { guardando: true, error: "", mensaje: "" });
       const payload = {
@@ -804,6 +832,34 @@ const CapturaMasivaGastos = () => {
       });
       return;
     }
+
+    // Validar duplicados
+    const codigoNormalizado = tipoDocForm.codigo?.trim().toLowerCase();
+    const nombreNormalizado = tipoDocForm.nombre?.trim().toLowerCase();
+    
+    const duplicado = configuracion.tiposDocumento.find(tipo => {
+      // Si estamos editando, excluir el registro actual
+      if (editingTipoId && tipo.id === editingTipoId) return false;
+      
+      const codigoExistente = tipo.codigo?.trim().toLowerCase();
+      const nombreExistente = tipo.nombre?.trim().toLowerCase();
+      
+      // Verificar si hay duplicado por código o nombre
+      if (codigoNormalizado && codigoExistente === codigoNormalizado) return true;
+      if (nombreNormalizado && nombreExistente === nombreNormalizado) return true;
+      
+      return false;
+    });
+
+    if (duplicado) {
+      const campo = duplicado.codigo?.trim().toLowerCase() === codigoNormalizado ? 'código' : 'nombre';
+      actualizarEstadoGuardado("tipos", {
+        error: `Ya existe un tipo de documento con ese ${campo}: "${duplicado.nombre || duplicado.codigo}"`,
+        mensaje: ""
+      });
+      return;
+    }
+
     try {
       actualizarEstadoGuardado("tipos", { guardando: true, error: "", mensaje: "" });
       const payload = { nombre: tipoDocForm.nombre, codigo: tipoDocForm.codigo };
@@ -835,6 +891,28 @@ const CapturaMasivaGastos = () => {
       });
       return;
     }
+
+    // Validar duplicados - Una cuenta con el mismo código NO puede existir independientemente del tipo
+    const codigoNormalizado = cuentaGlobalForm.codigo?.trim().toLowerCase();
+    
+    const duplicado = configuracion.cuentasGlobales.find(cuenta => {
+      // Si estamos editando, excluir el registro actual
+      if (editingCuentaId && cuenta.id === editingCuentaId) return false;
+      
+      const codigoExistente = cuenta.codigo?.trim().toLowerCase();
+      
+      // Verificar si hay duplicado por código (sin importar el tipo)
+      return codigoNormalizado && codigoExistente === codigoNormalizado;
+    });
+
+    if (duplicado) {
+      actualizarEstadoGuardado("cuentas", {
+        error: `Ya existe una cuenta ${duplicado.tipo} con el código "${duplicado.codigo}". No se pueden repetir códigos aunque sean de diferentes tipos.`,
+        mensaje: ""
+      });
+      return;
+    }
+
     try {
       actualizarEstadoGuardado("cuentas", { guardando: true, error: "", mensaje: "" });
       const payload = {
@@ -1369,6 +1447,11 @@ const CapturaMasivaGastos = () => {
           title={editingCentroId ? "Editar Centro de Costo" : "Crear Centro de Costo"}
         >
           <form className="space-y-4" onSubmit={handleGuardarCentro}>
+            {estadoGuardado.centros.error && (
+              <div className="bg-red-900/30 border border-red-700 text-red-100 rounded-md px-4 py-3 text-sm">
+                {estadoGuardado.centros.error}
+              </div>
+            )}
             <div>
               <label className="block text-xs text-gray-400 mb-1">Nombre / apodo</label>
               <input
@@ -1426,6 +1509,11 @@ const CapturaMasivaGastos = () => {
           title={editingTipoId ? "Editar Tipo de Documento" : "Crear Tipo de Documento"}
         >
           <form className="space-y-4" onSubmit={handleGuardarTipo}>
+            {estadoGuardado.tipos.error && (
+              <div className="bg-red-900/30 border border-red-700 text-red-100 rounded-md px-4 py-3 text-sm">
+                {estadoGuardado.tipos.error}
+              </div>
+            )}
             <div>
               <label className="block text-xs text-gray-400 mb-1">Nombre</label>
               <input
@@ -1473,6 +1561,11 @@ const CapturaMasivaGastos = () => {
           title={editingCuentaId ? "Editar Cuenta Global" : "Crear Cuenta Global"}
         >
           <form className="space-y-4" onSubmit={handleGuardarCuenta}>
+            {estadoGuardado.cuentas.error && (
+              <div className="bg-red-900/30 border border-red-700 text-red-100 rounded-md px-4 py-3 text-sm">
+                {estadoGuardado.cuentas.error}
+              </div>
+            )}
             <div>
               <label className="block text-xs text-gray-400 mb-1">Código</label>
               <input
