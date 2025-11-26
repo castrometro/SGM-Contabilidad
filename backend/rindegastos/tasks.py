@@ -6,11 +6,8 @@ from django.utils import timezone
 from openpyxl import Workbook, load_workbook
 
 from api.models import ServicioCliente, Usuario
-from contabilidad.tasks import (
-    get_headers_salida_contabilidad,
-    get_redis_client_db1,
-    get_redis_client_db1_binary,
-)
+from api.views import get_redis_client_db1, get_redis_client_db1_binary
+from rindegastos.excel_headers import get_headers_salida_rindegastos
 from rindegastos.models import Rendicion, TipoDocumento
 
 
@@ -271,7 +268,7 @@ def rg_procesar_step1_task(self, archivo_content, archivo_nombre, usuario_id, pa
     wb_out = Workbook()
     default_sheet = wb_out.active
     wb_out.remove(default_sheet)
-    headers_salida = get_headers_salida_contabilidad()
+    headers_salida = get_headers_salida_rindegastos()
 
     # Asegurar incorporación de la nueva columna requerida si aún no existe.
     # Se intenta colocar inmediatamente después de 'Monto 3 Detalle Libro' para mantener coherencia.

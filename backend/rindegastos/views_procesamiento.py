@@ -9,11 +9,8 @@ from io import BytesIO
 from django.http import HttpResponse
 from openpyxl import load_workbook
 from api.models import AsignacionClienteUsuario, ServicioCliente
-from contabilidad.tasks import (
-    get_headers_salida_contabilidad,
-    get_redis_client_db1,
-    get_redis_client_db1_binary,
-)
+from api.views import get_redis_client_db1, get_redis_client_db1_binary
+from rindegastos.excel_headers import get_headers_salida_rindegastos
 from rindegastos.tasks import (
     reconstruir_excel_desde_json,
     rg_procesar_step1_task,

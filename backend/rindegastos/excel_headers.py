@@ -1,0 +1,75 @@
+"""
+Definición de headers para archivos Excel de salida de RindeGastos
+"""
+
+
+def get_headers_salida_rindegastos():
+    """
+    Retorna los headers que debe tener cada hoja del Excel de salida
+    según las especificaciones del sistema contable
+    """
+    return [
+        "Numero",  # Tipo de documento original (33, 34, 61, etc.)
+        "Código Plan de Cuenta",
+        "Monto al Debe Moneda Base",
+        "Monto al Haber Moneda Base",
+        "Descripción Movimiento",
+        "Equivalencia Moneda",
+        "Monto al Debe Moneda Adicional",
+        "Monto al Haber Moneda Adicional",
+        "Código Condición de Venta",
+        "Código Vendedor",
+        "Código Ubicación",
+        "Código Concepto de Caja",
+        "Código Instrumento Financiero",
+        "Cantidad Instrumento Financiero",
+        "Código Detalle de Gasto",
+        "Cantidad Concepto de Gasto",
+        "Código Centro de Costo",
+        "Tipo Docto. Conciliación",
+        "Nro. Docto. Conciliación",
+        "Codigo Auxiliar",
+        "Tipo Documento",
+        "Numero Doc",
+        "Fecha Emisión Docto.(DD/MM/AAAA)",
+        "Fecha Vencimiento Docto.(DD/MM/AAAA)",
+        "Tipo Docto. Referencia",
+        "Nro. Docto. Referencia",
+        "Nro. Correlativo Interno",
+        "Monto 1 Detalle Libro",
+        "Monto 2 Detalle Libro",
+        "Monto 3 Detalle Libro",
+        "Monto 4 Detalle Libro",
+        "Monto 5 Detalle Libro",
+        "Monto 6 Detalle Libro",
+        "Monto 7 Detalle Libro",
+        "Monto 8 Detalle Libro",
+        "Monto 9 Detalle Libro",
+        "Monto Suma Detalle Libro",
+        "Número Documento Desde",
+        "Número Documento Hasta",
+        "Nro. agrupación en igual comprobante",
+        "Graba el detalle de libro (S/N) (Opcional, por defecto 'S')",
+        "Documento Nulo (S/N) (Opcional, por defecto 'N')",
+        "Código flujo efectivo 1 (Opcional)",
+        "Monto flujo 1 (Opcional)",
+        "Código flujo efectivo 2 (Opcional)",
+        "Monto flujo 2 (Opcional)",
+        "Código flujo efectivo 3 (Opcional)",
+        "Monto flujo 3 (Opcional)",
+        "Código flujo efectivo 4 (Opcional)",
+        "Monto flujo 4 (Opcional)",
+        "Código flujo efectivo 5 (Opcional)",
+        "Monto flujo 5 (Opcional)",
+        "Código flujo efectivo 6 (Opcional)",
+        "Monto flujo 6 (Opcional)",
+        "Código flujo efectivo 7 (Opcional)",
+        "Monto flujo 7 (Opcional)",
+        "Código flujo efectivo 8 (Opcional)",
+        "Monto flujo 8 (Opcional)",
+        "Código flujo efectivo 9 (Opcional)",
+        "Monto flujo 9 (Opcional)",
+        "Código flujo efectivo 10 (Opcional)",
+        "Monto flujo 10 (Opcional)",
+        "Numero Cuota de Pago"
+    ]

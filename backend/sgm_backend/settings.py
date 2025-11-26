@@ -68,7 +68,6 @@ INSTALLED_APPS = [
     'django_extensions',  # Para usar características avanzadas de Django
     'rest_framework',
     'api',
-    'contabilidad',
     'rindegastos.apps.RindeGastosConfig',
     'corsheaders',
 ]

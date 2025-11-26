@@ -397,35 +397,9 @@ class DashboardViewSet(viewsets.ReadOnlyModelViewSet):
                 asignaciones__usuario=user
             ).distinct().count()
         
-        # Importar modelos de cierres
-        from contabilidad.models import CierreContabilidad
-
-        # Cierres por área específica - adaptado según tipo de usuario
-        if user.tipo_usuario == 'gerente':
-            cierres_contabilidad = CierreContabilidad.objects.filter(
-                area__in=areas.filter(nombre='Contabilidad'),
-                fecha_creacion__range=[start_date, end_date],
-                estado__in=['aprobado', 'completo']
-            ).count()
-        elif user.tipo_usuario == 'supervisor':
-            # Supervisores ven cierres de sus analistas supervisados
-            analistas_supervisados = user.get_analistas_supervisados()
-            cierres_contabilidad = CierreContabilidad.objects.filter(
-                area__in=areas.filter(nombre='Contabilidad'),
-                usuario_analista__in=analistas_supervisados,
-                fecha_creacion__range=[start_date, end_date],
-                estado__in=['aprobado', 'completo']
-            ).count()
-        else:
-            # Analistas ven solo sus propios cierres
-            cierres_contabilidad = CierreContabilidad.objects.filter(
-                area__in=areas.filter(nombre='Contabilidad'),
-                usuario_analista=user,
-                fecha_creacion__range=[start_date, end_date],
-                estado__in=['aprobado', 'completo']
-            ).count()
-
-        total_cierres = cierres_contabilidad
+        # Total de cierres se calcula desde otras áreas si están disponibles
+        # Por ahora se establece en 0 ya que no hay módulo de contabilidad
+        total_cierres = 0
         
         # Performance de analistas - adaptado según tipo de usuario
         if user.tipo_usuario == 'gerente':
@@ -611,27 +585,16 @@ class AnalistasDetalladoViewSet(viewsets.ReadOnlyModelViewSet):
         """Estadísticas detalladas de un analista específico"""
         analista = self.get_object()
         
-        from contabilidad.models import CierreContabilidad
-        
-        # Cierres por estado
-        cierres_contabilidad = CierreContabilidad.objects.filter(
-            usuario=analista
-        ).values('estado').annotate(count=Count('id'))
-        
+        # Por ahora sin estadísticas de cierres de contabilidad
         cierres_por_estado = {}
-        for item in cierres_contabilidad:
-            cierres_por_estado[item['estado']] = item['count']
         
         # Clientes asignados
         clientes = Cliente.objects.filter(asignaciones__usuario=analista)
         
-        # Métricas de performance
-        total_cierres = sum(cierres_por_estado.values())
-        completados = (cierres_por_estado.get('completo', 0) + 
-                      cierres_por_estado.get('completado', 0) + 
-                      cierres_por_estado.get('aprobado', 0) + 
-                      cierres_por_estado.get('finalizado', 0))
-        eficiencia = (completados / total_cierres * 100) if total_cierres > 0 else 0
+        # Métricas de performance básicas
+        total_cierres = 0
+        completados = 0
+        eficiencia = 0
         
         # Tiempo promedio (simplificado)
         tiempo_promedio = 15.5  # Placeholder
@@ -816,7 +779,6 @@ import redis
 import json
 import os
 from django.http import JsonResponse
-from contabilidad.tasks import procesar_captura_masiva_gastos_task
 
 def get_redis_client_db1():
     """
@@ -868,91 +830,9 @@ def get_redis_client_db1_binary():
             encoding='utf-8'
         )
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def captura_masiva_gastos(request):
-    """
-    Endpoint para procesar archivos Excel de captura masiva de gastos
-    """
-    try:
-        # Validar que se haya enviado un archivo
-        if 'archivo' not in request.FILES:
-            return Response({
-                'error': 'No se encontró archivo en la petición'
-            }, status=400)
-        
-        archivo = request.FILES['archivo']
-        
-        # Validar extensión del archivo
-        if not archivo.name.lower().endswith(('.xlsx', '.xls')):
-            return Response({
-                'error': 'El archivo debe ser un Excel (.xlsx o .xls)'
-            }, status=400)
-        
-        # Validar tamaño del archivo (máximo 10MB)
-        if archivo.size > 10 * 1024 * 1024:
-            return Response({
-                'error': 'El archivo no puede ser mayor a 10MB'
-            }, status=400)
-        
-        # Obtener mapeo de centros de costos si se proporciona
-        mapeo_cc = {}
-        if 'mapeo_cc' in request.POST:
-            try:
-                mapeo_cc = json.loads(request.POST['mapeo_cc'])
-            except json.JSONDecodeError:
-                return Response({
-                    'error': 'El mapeo de centros de costos no tiene formato JSON válido'
-                }, status=400)
-        
-        # Leer contenido del archivo
-        archivo_content = archivo.read()
-        
-        # Disparar tarea de Celery
-        task = procesar_captura_masiva_gastos_task.delay(
-            archivo_content,
-            archivo.name,
-            request.user.id,
-            mapeo_cc  # Pasar el mapeo de centros de costos
-        )
-        
-        return Response({
-            'task_id': task.id,
-            'mensaje': 'Archivo enviado para procesamiento',
-            'archivo_nombre': archivo.name,
-            'estado': 'procesando'
-        }, status=202)
-        
-    except Exception as e:
-        return Response({
-            'error': f'Error procesando archivo: {str(e)}'
-        }, status=500)
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def estado_captura_gastos(request, task_id):
-    """
-    Consultar el estado de una tarea de captura masiva de gastos
-    """
-    try:
-        redis_client = get_redis_client_db1()
-        
-        # Obtener metadatos de la tarea - incluir usuario_id en la clave
-        metadata_raw = redis_client.get(f"captura_gastos_meta:{request.user.id}:{task_id}")
-        if not metadata_raw:
-            return Response({
-                'error': 'No se encontró información de la tarea'
-            }, status=404)
-        
-        metadata = json.loads(metadata_raw)
-        
-        return Response(metadata)
-        
-    except Exception as e:
-        return Response({
-            'error': f'Error consultando estado: {str(e)}'
-        }, status=500)
+# Endpoints de captura masiva de gastos movidos a rindegastos app
+# Los endpoints captura_masiva_gastos y estado_captura_gastos
+# ahora están en rindegastos.views_procesamiento
 
 
 @api_view(['GET'])

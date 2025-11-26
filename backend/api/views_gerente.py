@@ -14,7 +14,6 @@ from .models import (
 )
 from .serializers import ClienteSerializer, UsuarioSerializer
 from .permissions import IsGerente, IsAuthenticatedAndActive
-from contabilidad.models import CierreContabilidad
 
 
 # ========== GESTIÓN DE CLIENTES ==========
@@ -56,18 +55,9 @@ def obtener_clientes_gerente(request):
                     'fecha_asignacion': asignacion.fecha_asignacion.strftime('%Y-%m-%d')
                 })
         
-        # Determinar estado de cierres (lógica simplificada)
-        ultimo_cierre_contabilidad = CierreContabilidad.objects.filter(
-            cliente=cliente
-        ).order_by('-periodo').first()
-        
+        # Estado de cierres simplificado (sin dependencia de contabilidad)
         estado_cierres = 'al_dia'  # Por defecto
         ultimo_cierre = None
-
-        if ultimo_cierre_contabilidad:
-            ultimo_cierre = ultimo_cierre_contabilidad.periodo
-            if ultimo_cierre_contabilidad.estado in ['atrasado', 'pendiente']:
-                estado_cierres = 'atrasado'
         
         clientes_data.append({
             'id': cliente.id,
@@ -257,11 +247,8 @@ def metricas_avanzadas(request):
     clientes_asignados = clientes_query.filter(asignaciones__isnull=False).distinct().count()
     clientes_sin_asignar = total_clientes - clientes_asignados
     
-    # Cierres recientes
-    cierres_contabilidad = CierreContabilidad.objects.filter(
-        cliente__in=clientes_query,
-        fecha_creacion__gte=fecha_inicio
-    ).count()
+    # Cierres recientes (sin dependencia de contabilidad por ahora)
+    cierres_contabilidad = 0
     
     # KPIs calculados
     promedio_clientes_por_analista = round(total_clientes / total_analistas, 1) if total_analistas > 0 else 0

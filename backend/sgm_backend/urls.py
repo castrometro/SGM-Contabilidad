@@ -27,7 +27,6 @@ urlpatterns = [
     path('api/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/', include('api.urls')),
-    path('api/contabilidad/', include('contabilidad.urls')),
     path('api/rindegastos/', include('rindegastos.urls')),
 ]
 
