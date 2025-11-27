@@ -86,6 +86,7 @@ REST_FRAMEWORK = {
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Servir archivos estáticos con Gunicorn
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -237,6 +238,11 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
+
+# WhiteNoise configuration para servir archivos estáticos con Gunicorn
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Habilitar compresión y caching de archivos estáticos
+WHITENOISE_AUTOREFRESH = DEBUG  # Auto-refresh solo en desarrollo
 
 
 # Default primary key field type
