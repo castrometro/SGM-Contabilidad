@@ -95,13 +95,23 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5174",  # si estás en local
-    "http://172.17.11.13:5174",  # IP del servidor Vite
-    "http://172.17.11.13:8000",  # IP del servidor Django
-    "http://172.17.11.13:5174",  # IP anterior (mantener por compatibilidad)
-    "http://172.17.11.13:8000",
-]
+# Configuración CORS dual: desarrollo vs producción
+if DEBUG:
+    # En desarrollo: permitir Vite dev server (npm run dev)
+    CORS_ALLOWED_ORIGINS = [
+        "http://localhost:5174",        # Desarrollo local
+        "http://172.17.11.13:5174",     # Vite dev server en servidor
+        "http://172.17.11.15:5174",     # Vite dev server en servidor de desarrollo
+        "http://172.17.11.13:8000",     # Django (por si acaso)
+        "http://172.17.11.15:8000",     # Django dev (por si acaso)
+    ]
+else:
+    # En producción: frontend servido desde Django (mismo origen)
+    # CORS solo necesario si hay otros servicios que consultan la API
+    CORS_ALLOWED_ORIGINS = [
+        "http://172.17.11.13:8000",     # Producción
+        "http://172.17.11.15:8000",     # Desarrollo (servidor separado)
+    ]
 
 # Configuración adicional de CORS para manejar peticiones preflight
 CORS_ALLOW_CREDENTIALS = True
