@@ -100,17 +100,17 @@ if DEBUG:
     # En desarrollo: permitir Vite dev server (npm run dev)
     CORS_ALLOWED_ORIGINS = [
         "http://localhost:5174",        # Desarrollo local
-        "http://172.17.11.13:5174",     # Vite dev server en servidor
-        "http://172.17.11.15:5174",     # Vite dev server en servidor de desarrollo
-        "http://172.17.11.13:8000",     # Django (por si acaso)
-        "http://172.17.11.15:8000",     # Django dev (por si acaso)
+        "http://172.17.11.13:5174",     # Vite dev server en producción
+        "http://172.17.11.22:5174",     # Vite dev server en desarrollo (vm-bdo-q)
+        "http://172.17.11.13:8000",     # Django producción
+        "http://172.17.11.22:8000",     # Django desarrollo (vm-bdo-q)
     ]
 else:
     # En producción: frontend servido desde Django (mismo origen)
     # CORS solo necesario si hay otros servicios que consultan la API
     CORS_ALLOWED_ORIGINS = [
-        "http://172.17.11.13:8000",     # Producción
-        "http://172.17.11.15:8000",     # Desarrollo (servidor separado)
+        "http://172.17.11.13:8000",     # Producción (vm-bdo-outcontab1)
+        "http://172.17.11.22:8000",     # Desarrollo (vm-bdo-q)
     ]
 
 # Configuración adicional de CORS para manejar peticiones preflight

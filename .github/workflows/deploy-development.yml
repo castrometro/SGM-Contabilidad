@@ -25,7 +25,7 @@ jobs:
       
       - name: Build frontend
         env:
-          VITE_MEDIA_BASE_URL: http://172.17.11.15:8000  # Ajusta según servidor dev
+          VITE_MEDIA_BASE_URL: http://172.17.11.22:8000  # Servidor de desarrollo (vm-bdo-q)
         run: npm run build
       
       - name: Deploy to Django static directory
@@ -53,5 +53,5 @@ jobs:
       - name: Deployment notification
         run: |
           echo "✅ Deployment to DEVELOPMENT completed successfully!"
-          echo "🌐 Frontend URL: http://172.17.11.15:8000"
+          echo "🌐 Frontend URL: http://172.17.11.22:8000"
           echo "📦 Build size: $(du -sh dist | cut -f1)"

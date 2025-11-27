@@ -11,7 +11,7 @@ cd /home/outcontab1/dev/sgm-contabilidad
 ./scripts/setup-github-runner.sh production
 ```
 
-### Servidor de Desarrollo (172.17.11.15)
+### Servidor de Desarrollo (172.17.11.22 - vm-bdo-q)
 
 ```bash
 cd /home/outcontab1/dev/sgm-contabilidad

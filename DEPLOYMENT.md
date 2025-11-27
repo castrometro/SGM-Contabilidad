@@ -52,7 +52,7 @@ cd /home/outcontab1/dev/sgm-contabilidad
 ./scripts/setup-github-runner.sh production
 ```
 
-**Para servidor de DESARROLLO (172.17.11.15):**
+**Para servidor de DESARROLLO (172.17.11.22 - vm-bdo-q):**
 ```bash
 cd /home/outcontab1/dev/sgm-contabilidad
 ./scripts/setup-github-runner.sh development
@@ -137,7 +137,7 @@ git push origin development
 # (mismo proceso que producción pero en servidor dev)
 
 # 3. Tu aplicación está desplegada!
-# Visita: http://172.17.11.15:8000
+# Visita: http://172.17.11.22:8000
 ```
 
 ### Deployment Manual
