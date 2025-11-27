@@ -14,9 +14,22 @@ services:
   django:
     build:
       context: ./backend
-    command: bash -c "python manage.py migrate && python manage.py collectstatic --noinput && python manage.py runserver 0.0.0.0:8000"
+    # Usa Gunicorn en producción (DEBUG=False) o runserver en desarrollo (DEBUG=True)
+    command: >
+      bash -c "
+      python manage.py migrate &&
+      python manage.py collectstatic --noinput &&
+      if [ \"$DEBUG\" = \"True\" ]; then
+        echo '🔧 Modo DESARROLLO - Usando runserver' &&
+        python manage.py runserver 0.0.0.0:8000;
+      else
+        echo '🚀 Modo PRODUCCIÓN - Usando Gunicorn' &&
+        gunicorn sgm_backend.wsgi:application -c gunicorn.conf.py;
+      fi
+      "
     volumes:
       - ./backend:/app
+      - static_files:/app/staticfiles  # Para servir archivos estáticos
     ports:
       - "8000:8000"
     env_file:
@@ -92,6 +105,7 @@ services:
 volumes:
   redis_data:
   redis_insight_data:
+  static_files:  # Para archivos estáticos de Django
   
 
 
