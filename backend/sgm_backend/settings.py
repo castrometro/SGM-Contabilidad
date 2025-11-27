@@ -49,8 +49,9 @@ if not SECRET_KEY:
 DEBUG = os.environ.get("DEBUG", "False").lower() in {"1", "true", "yes", "y"}
 
 # Allow list from environment to support dynamic dev hosts (comma separated)
-_env_allowed_hosts = os.environ.get('ALLOWED_HOSTS', '172.17.11.18,127.0.0.1,localhost,0.0.0.0')
+_env_allowed_hosts = os.environ.get('DJANGO_ALLOWED_HOSTS', os.environ.get('ALLOWED_HOSTS', '172.17.11.18,127.0.0.1,localhost,0.0.0.0'))
 ALLOWED_HOSTS = [h.strip() for h in _env_allowed_hosts.split(',') if h.strip()]
+
 
 
 # Application definition
