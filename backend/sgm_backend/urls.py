@@ -16,9 +16,10 @@ Including another URLconf
 """
 #backend/sgm_backend/urls.py
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.generic import TemplateView
 from rest_framework_simplejwt.views import TokenRefreshView
 from api.views import CustomTokenObtainPairView
 
@@ -34,3 +35,13 @@ urlpatterns = [
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+else:
+    # En producción, servir archivos media directamente
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# Catch-all para React Router (debe ser el ÚLTIMO patrón)
+# IMPORTANTE: NO capturar rutas que empiezan con /api/, /admin/, /static/, /media/, /assets/
+# Sirve index.html solo para rutas de la SPA
+urlpatterns += [
+    re_path(r'^(?!api/|admin/|static/|media/|assets/).*$', TemplateView.as_view(template_name='index.html'), name='react_app'),
+]

@@ -1,0 +1,57 @@
+name: Deploy to Development
+
+on:
+  push:
+    branches:
+      - development
+  workflow_dispatch:  # Permite ejecución manual
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted  # Usa el runner instalado en servidor de desarrollo
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install frontend dependencies
+        run: npm ci
+      
+      - name: Build frontend
+        env:
+          VITE_MEDIA_BASE_URL: http://172.17.11.15:8000  # Ajusta según servidor dev
+        run: npm run build
+      
+      - name: Deploy to Django static directory
+        run: |
+          # Backup del build anterior
+          if [ -d "/home/outcontab1/dev/sgm-contabilidad/backend/static/dist" ]; then
+            rm -rf /home/outcontab1/dev/sgm-contabilidad/backend/static/dist.backup
+            mv /home/outcontab1/dev/sgm-contabilidad/backend/static/dist /home/outcontab1/dev/sgm-contabilidad/backend/static/dist.backup
+          fi
+          
+          # Copiar nuevo build
+          mkdir -p /home/outcontab1/dev/sgm-contabilidad/backend/static
+          cp -r dist /home/outcontab1/dev/sgm-contabilidad/backend/static/
+      
+      - name: Collect static files
+        run: |
+          cd /home/outcontab1/dev/sgm-contabilidad/backend
+          docker compose exec -T django python manage.py collectstatic --noinput
+      
+      - name: Restart Django
+        run: |
+          cd /home/outcontab1/dev/sgm-contabilidad
+          docker compose restart django
+      
+      - name: Deployment notification
+        run: |
+          echo "✅ Deployment to DEVELOPMENT completed successfully!"
+          echo "🌐 Frontend URL: http://172.17.11.15:8000"
+          echo "📦 Build size: $(du -sh dist | cut -f1)"

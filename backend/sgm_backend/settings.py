@@ -133,7 +133,9 @@ ROOT_URLCONF = 'sgm_backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [
+            os.path.join(BASE_DIR, 'static', 'dist'),  # Para servir index.html de React desde static
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
