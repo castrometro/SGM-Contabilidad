@@ -1,8 +1,11 @@
 # 📚 Documentación del Sistema SGM Contabilidad
 
-**Versión:** 1.1  
+**Versión:** 1.2  
 **Fecha:** 28 de Noviembre de 2025  
 **Autor:** BDO Chile - Equipo de Desarrollo
+
+> **🔒 NOTA DE SEGURIDAD:** Este sistema está desplegado dentro de la VPN corporativa de BDO Chile.  
+> El acceso requiere conexión activa a la red privada 172.17.11.0/24.
 
 ---
 
@@ -93,39 +96,52 @@ flowchart TB
 
 ### 1.2 Arquitectura de Servidores
 
+> **🔒 IMPORTANTE:** Todos los servidores están dentro de la **VPN corporativa BDO Chile** (Red 172.17.11.0/24).  
+> El acceso está restringido únicamente a equipos conectados a la VPN interna de BDO.
+
 ```mermaid
 flowchart TB
-    subgraph PROD["🚀 PRODUCCIÓN (172.17.11.13)"]
-        direction TB
-        ProdBranch["Branch: production"]
-        ProdDjango["Django + Gunicorn"]
-        ProdCelery["Celery Workers"]
-        ProdRedis["Redis"]
+    subgraph VPN["🔒 VPN CORPORATIVA BDO (172.17.11.0/24)"]
+        subgraph PROD["🚀 PRODUCCIÓN (172.17.11.13)"]
+            direction TB
+            ProdBranch["Branch: production"]
+            ProdDjango["Django + Gunicorn<br/>Puerto 8000"]
+            ProdCelery["Celery Workers"]
+            ProdRedis["Redis<br/>Puerto 6379"]
+        end
+
+        subgraph DEV["🔧 DESARROLLO (172.17.11.22)"]
+            direction TB
+            DevBranch["Branch: development"]
+            DevDjango["Django + runserver<br/>Puerto 8000"]
+            DevCelery["Celery Workers"]
+            DevRedis["Redis<br/>Puerto 6379"]
+        end
+
+        subgraph DB_SERVER["💾 SERVIDOR DE BASES DE DATOS (172.17.11.21)"]
+            ProdDB["PostgreSQL 16<br/>sgm_db_dev<br/>Puerto 5432"]
+        end
     end
 
-    subgraph DEV["🔧 DESARROLLO (172.17.11.22)"]
-        direction TB
-        DevBranch["Branch: development"]
-        DevDjango["Django + runserver"]
-        DevCelery["Celery Workers"]
-        DevRedis["Redis"]
+    subgraph USERS["👥 USUARIOS BDO"]
+        Employee["Empleados con<br/>acceso a VPN"]
     end
 
-    subgraph DB_PROD["💾 DB PRODUCCIÓN (172.17.11.14)"]
-        ProdDB["PostgreSQL<br/>sgm_db"]
-    end
-
-    subgraph DB_DEV["💾 DB DESARROLLO"]
-        DevDB["PostgreSQL<br/>sgm_dev_db"]
-    end
-
+    Employee -->|"VPN Connection"| VPN
+    
     ProdDjango --> ProdDB
-    DevDjango --> DevDB
+    DevDjango --> ProdDB
     ProdDjango --> ProdRedis
     DevDjango --> DevRedis
     ProdCelery --> ProdRedis
     DevCelery --> DevRedis
 ```
+
+**Características de la Red:**
+- **Aislamiento total**: Sin acceso desde Internet público
+- **Autenticación VPN**: Requiere credenciales corporativas BDO
+- **Firewall corporativo**: Protección a nivel de infraestructura
+- **Segmentación**: Red 172.17.11.0/24 dedicada a SGM
 
 ### 1.3 Flujo de Datos - Procesamiento Excel
 
@@ -502,7 +518,69 @@ GET /api/clientes/?page=1&page_size=20
 
 ## 5. Configuración de Seguridad
 
-### 5.1 Headers HTTP de Seguridad
+### 5.1 Infraestructura de Red y VPN
+
+#### 5.1.1 Topología de Red Corporativa
+
+El sistema SGM está desplegado dentro de la **VPN corporativa de BDO Chile**, proporcionando una capa adicional de seguridad mediante aislamiento de red.
+
+**Especificaciones de la Red:**
+
+| Componente | Detalle |
+|------------|--------|
+| **Red VPN** | 172.17.11.0/24 |
+| **Servidor Producción** | 172.17.11.13 (vm-bdo-outcontab1) |
+| **Servidor Desarrollo** | 172.17.11.22 (vm-bdo-q) |
+| **Servidor Base de Datos** | 172.17.11.21 (vmbdobases) |
+| **Acceso** | Solo mediante VPN corporativa BDO |
+| **Firewall** | Gestionado por infraestructura BDO |
+
+#### 5.1.2 Ventajas de Seguridad VPN
+
+✅ **Aislamiento Total**
+- El sistema **NO es accesible desde Internet público**
+- Requiere conexión activa a VPN corporativa BDO
+- Protección contra ataques externos automatizados
+
+✅ **Autenticación en Capas**
+1. **Capa 1 - VPN**: Credenciales corporativas BDO
+2. **Capa 2 - Sistema**: JWT token con usuario/contraseña
+3. **Capa 3 - Recursos**: Permisos por rol (Gerente/Supervisor/Analista)
+
+✅ **Control de Acceso Centralizado**
+- Departamento IT de BDO gestiona accesos VPN
+- Revocación inmediata al desvincularse empleado
+- Auditoría de conexiones a nivel corporativo
+
+✅ **Reducción de Superficie de Ataque**
+- No expuesto a escaneos de puertos públicos
+- Protegido contra ataques DDoS
+- Sin necesidad de certificados SSL públicos (HTTP interno)
+
+#### 5.1.3 Implicaciones en Configuración
+
+**HTTPS No Requerido:**
+```python
+# Como el tráfico está dentro de VPN cifrada,
+# no es crítico implementar HTTPS interno
+SECURE_SSL_REDIRECT = False  # Aceptable en VPN corporativa
+```
+
+**CORS Restringido a Red Interna:**
+```python
+CORS_ALLOWED_ORIGINS = [
+    "http://172.17.11.13:8000",  # Solo IPs internas
+    "http://172.17.11.22:8000",  # Dentro de VPN
+]
+```
+
+**Puertos Internos:**
+- Django: `8000` (HTTP interno, no expuesto públicamente)
+- PostgreSQL: `5432` (solo red interna)
+- Redis: `6379` (solo localhost/Docker network)
+- Flower: `5555` (monitoreo Celery, red interna)
+
+### 5.2 Headers HTTP de Seguridad
 
 El sistema implementa headers de seguridad a través del middleware de Django:
 
@@ -518,22 +596,24 @@ MIDDLEWARE = [
 ]
 ```
 
-### 5.2 Configuración CORS
+### 5.3 Configuración CORS
+
+> **Nota VPN:** Todos los orígenes permitidos son IPs privadas dentro de la VPN corporativa BDO.
 
 ```python
 # Desarrollo (DEBUG=True)
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5174",        # Vite dev server local
-    "http://172.17.11.13:5174",     # Vite en servidor producción
-    "http://172.17.11.22:5174",     # Vite en servidor desarrollo
-    "http://172.17.11.13:8000",     # Django producción
-    "http://172.17.11.22:8000",     # Django desarrollo
+    "http://localhost:5174",        # Vite dev server local (dev machines en VPN)
+    "http://172.17.11.13:5174",     # Vite en servidor producción (VPN)
+    "http://172.17.11.22:5174",     # Vite en servidor desarrollo (VPN)
+    "http://172.17.11.13:8000",     # Django producción (VPN)
+    "http://172.17.11.22:8000",     # Django desarrollo (VPN)
 ]
 
 # Producción (DEBUG=False)
 CORS_ALLOWED_ORIGINS = [
-    "http://172.17.11.13:8000",     # Producción
-    "http://172.17.11.22:8000",     # Desarrollo
+    "http://172.17.11.13:8000",     # Producción (VPN interna)
+    "http://172.17.11.22:8000",     # Desarrollo (VPN interna)
 ]
 
 # Configuración adicional
@@ -599,27 +679,48 @@ Las siguientes variables **NUNCA** deben commitearse y deben configurarse en el 
 | Static files | Django serve | WhiteNoise |
 | Token lifetime | 8 horas | 8 horas |
 
-### 5.8 Checklist de Seguridad
+### 5.9 Checklist de Seguridad
 
-- [x] JWT para autenticación stateless
-- [x] CORS configurado por ambiente
-- [x] Redis protegido con contraseña
-- [x] Contraseñas validadas con políticas
-- [x] Variables sensibles en `.env`
-- [x] X-Frame-Options habilitado
-- [x] CSRF protection activo
-- [x] Límites de upload configurados
-- [x] Permisos por rol implementados
-- [x] Tokens con rotación automática
-- [x] Blacklist de tokens rotados
+**Seguridad de Red:**
+- [x] ✅ Sistema dentro de VPN corporativa BDO
+- [x] ✅ Sin exposición a Internet público
+- [x] ✅ Firewall corporativo activo
+- [x] ✅ Red segmentada (172.17.11.0/24)
 
-### 5.9 Recomendaciones Futuras
+**Autenticación y Autorización:**
+- [x] ✅ JWT para autenticación stateless
+- [x] ✅ Tokens con rotación automática
+- [x] ✅ Blacklist de tokens rotados
+- [x] ✅ Permisos por rol implementados
+- [x] ✅ Contraseñas validadas con políticas
 
-1. **HTTPS**: Implementar certificado SSL/TLS con Let's Encrypt
-2. **Nginx**: Agregar proxy reverso para protección adicional
-3. **Rate Limiting**: Implementar throttling en endpoints críticos
-4. **Auditoría**: Agregar logging de accesos y cambios sensibles
-5. **2FA**: Considerar autenticación de dos factores para gerentes
+**Configuración de Aplicación:**
+- [x] ✅ CORS restringido a IPs internas VPN
+- [x] ✅ Redis protegido con contraseña
+- [x] ✅ Variables sensibles en `.env`
+- [x] ✅ X-Frame-Options habilitado
+- [x] ✅ CSRF protection activo
+- [x] ✅ Límites de upload configurados
+
+### 5.10 Recomendaciones Futuras
+
+**Prioridad Alta:**
+1. **Rate Limiting**: Implementar throttling en endpoints críticos
+2. **Auditoría**: Agregar logging de accesos y cambios sensibles
+3. **2FA**: Considerar autenticación de dos factores para gerentes
+4. **Backup Automatizado**: Implementar respaldos incrementales diarios
+
+**Prioridad Media:**
+5. **Monitoring**: Herramientas de monitoreo proactivo (Prometheus/Grafana)
+6. **Nginx**: Agregar proxy reverso para balanceo de carga
+7. **WAF**: Web Application Firewall adicional (opcional dado VPN)
+
+**No Crítico (dado VPN corporativa):**
+- ⚠️ **HTTPS Interno**: No es prioritario ya que el tráfico está dentro de VPN cifrada
+- ⚠️ **CDN**: No aplicable en red interna
+- ⚠️ **DDoS Protection**: VPN ya proporciona aislamiento
+
+> **Nota:** La VPN corporativa reduce significativamente varios riesgos de seguridad típicos de aplicaciones web públicas, permitiendo enfocarse en seguridad a nivel de aplicación y auditoría.
 
 ---
 
@@ -710,3 +811,20 @@ REDIS_PASSWORD=tu_redis_password
 **Commits relacionados:**
 - `e6e220f4` - feat: Eliminar endpoints de BI, Dashboard, Gerente y Cobranza
 - `2201e17d` - fix: Corregir error de sintaxis en comentarios de views.py
+
+### [v1.2] - 28 de Noviembre 2025
+
+**Actualización: Infraestructura VPN Corporativa**
+- 🔒 Documentada arquitectura dentro de VPN corporativa BDO
+- 📡 Actualizado diagrama de red con segmentación (172.17.11.0/24)
+- 🛡️ Nueva sección 5.1: Infraestructura de Red y VPN
+- ✅ Ventajas de seguridad VPN documentadas
+- 📝 Implicaciones de configuración HTTPS/CORS actualizadas
+- 🎯 Checklist de seguridad reorganizado por categorías
+- 💡 Recomendaciones futuras priorizadas según contexto VPN
+
+**Detalles clave:**
+- Sin exposición a Internet público (solo VPN interna)
+- Autenticación en 3 capas: VPN + JWT + Permisos
+- HTTPS interno no crítico (tráfico cifrado por VPN)
+- Superficie de ataque reducida significativamente
