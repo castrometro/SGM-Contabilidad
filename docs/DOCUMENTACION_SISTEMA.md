@@ -1,7 +1,7 @@
 # 📚 Documentación del Sistema SGM Contabilidad
 
-**Versión:** 1.0  
-**Fecha:** Noviembre 2025  
+**Versión:** 1.1  
+**Fecha:** 28 de Noviembre de 2025  
 **Autor:** BDO Chile - Equipo de Desarrollo
 
 ---
@@ -413,23 +413,43 @@ curl -X POST http://localhost:8000/api/token/ \
 | `GET` | `/api/rindegastos/cuentas-globales/` | Listar cuentas globales | Autenticado |
 | `GET` | `/api/rindegastos/rendiciones/` | Historial de rendiciones | Autenticado |
 
-### 4.6 Endpoints de Dashboard
-
-| Método | Endpoint | Descripción | Permisos |
-|--------|----------|-------------|----------|
-| `GET` | `/api/dashboard/` | KPIs y métricas | Gerente, Supervisor, Analista |
-| `GET` | `/api/bi-analistas/` | Performance de analistas | Gerente |
-| `GET` | `/api/analistas-detallado/` | Detalle de analistas | Gerente |
-| `GET` | `/api/analistas-detallado/{id}/estadisticas/` | Stats de un analista | Gerente |
-
-### 4.7 Endpoints Auxiliares
+### 4.6 Endpoints Auxiliares
 
 | Método | Endpoint | Descripción | Permisos |
 |--------|----------|-------------|----------|
 | `GET` | `/api/areas/` | Listar áreas | Gerente |
 | `GET` | `/api/industrias/` | Listar industrias | Autenticado |
 | `GET` | `/api/servicios/` | Listar servicios | Autenticado |
-| `POST` | `/api/cobranza/parse-auxiliar/` | Parsear auxiliar CxC | Autenticado |
+| `GET` | `/api/ping/` | Health check del sistema | Autenticado |
+
+### 4.7 Endpoints Deshabilitados
+
+> **⚠️ IMPORTANTE:** Los siguientes endpoints han sido **deshabilitados** y ya no están disponibles en el sistema:
+
+#### 4.7.1 Dashboard y Business Intelligence
+- ❌ `GET /api/dashboard/` - Dashboard ejecutivo con KPIs
+- ❌ `GET /api/bi-analistas/` - Performance de analistas
+- ❌ `GET /api/analistas-detallado/` - Análisis detallado de analistas
+- ❌ `GET /api/analistas-detallado/{id}/estadisticas/` - Estadísticas de un analista
+
+#### 4.7.2 Endpoints Exclusivos de Gerente
+- ❌ `GET /api/gerente/clientes/` - Vista completa de clientes
+- ❌ `POST /api/gerente/clientes/reasignar/` - Reasignar cliente a analista
+- ❌ `GET /api/gerente/clientes/{id}/perfil-completo/` - Perfil detallado de cliente
+- ❌ `GET /api/gerente/metricas/` - Métricas avanzadas del sistema
+- ❌ `GET /api/gerente/analisis-portafolio/` - Análisis de portafolio completo
+- ❌ `GET /api/gerente/alertas/` - Sistema de alertas
+- ❌ `PATCH /api/gerente/alertas/{id}/marcar-leida/` - Marcar alerta como leída
+- ❌ `GET /api/gerente/alertas/configuracion/` - Configuración de alertas
+- ❌ `POST /api/gerente/alertas/configurar/` - Configurar umbrales de alertas
+- ❌ `POST /api/gerente/reportes/generar/` - Generar reporte
+- ❌ `GET /api/gerente/reportes/historial/` - Historial de reportes
+- ❌ `GET /api/gerente/reportes/{id}/descargar/` - Descargar reporte
+
+#### 4.7.3 Cobranza (CxC)
+- ❌ `POST /api/cobranza/parse-auxiliar/` - Parser de auxiliar CxC
+
+**Motivo de deshabilitación:** Simplificación del sistema y enfoque en funcionalidades core. El código está preservado en `backend/api/views.py` (comentado) y `backend/api/urls_gerente.py.disabled` para referencia futura.
 
 ### 4.8 Formato de Respuestas de Error
 
@@ -462,6 +482,21 @@ Los endpoints que retornan listas soportan paginación por defecto de Django RES
 ```bash
 GET /api/clientes/?page=1&page_size=20
 ```
+
+### 4.10 Resumen de Endpoints por Categoría
+
+| Categoría | Endpoints Activos | Endpoints Deshabilitados |
+|-----------|-------------------|--------------------------|
+| **Autenticación** | 2 | 0 |
+| **Usuarios** | 5 | 0 |
+| **Clientes** | 4 | 0 |
+| **Asignaciones** | 5 | 0 |
+| **Rinde Gastos** | 8 | 0 |
+| **Dashboard/BI** | 0 | 4 |
+| **Gerente** | 0 | 12 |
+| **Cobranza** | 0 | 1 |
+| **Auxiliares** | 4 | 0 |
+| **TOTAL** | **28** | **17** |
 
 ---
 
@@ -654,3 +689,24 @@ REDIS_PASSWORD=tu_redis_password
 
 **Documento generado para BDO Chile - SGM Contabilidad**  
 **Última actualización:** Noviembre 2025
+
+---
+
+## �� Historial de Cambios
+
+### [v1.1] - 28 de Noviembre 2025
+
+**Eliminación de Endpoints**
+- ❌ Deshabilitados 17 endpoints de Dashboard, BI, Gerente y Cobranza
+- 📝 Código preservado en archivos comentados para referencia futura
+- ✅ Sistema simplificado enfocado en funcionalidades core
+- 🎯 28 endpoints activos en producción
+
+**Archivos afectados:**
+- `backend/api/urls.py` - Eliminadas rutas de BI/Dashboard/Gerente/Cobranza
+- `backend/api/views.py` - ViewSets comentados para referencia
+- `backend/api/urls_gerente.py` - Renombrado a `.disabled`
+
+**Commits relacionados:**
+- `e6e220f4` - feat: Eliminar endpoints de BI, Dashboard, Gerente y Cobranza
+- `2201e17d` - fix: Corregir error de sintaxis en comentarios de views.py
