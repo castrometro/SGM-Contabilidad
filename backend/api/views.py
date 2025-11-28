@@ -274,43 +274,40 @@ class AsignacionClienteUsuarioViewSet(viewsets.ModelViewSet):
 # Código comentado para referencia futura si se necesita restaurar
 # =============================================================================
 
-"""
-class AnalistaPerformanceViewSet(viewsets.ReadOnlyModelViewSet):
-    serializer_class = AnalistaPerformanceSerializer
-    permission_classes = [IsAuthenticatedAndActive & IsGerente]
-
-    def get_queryset(self):
-        gerente = self.request.user
-        areas = gerente.areas.all()
-        return (
-            Usuario.objects.filter(tipo_usuario='analista', areas__in=areas)
-            .distinct()
-            .annotate(
-                clientes_asignados=Count('asignaciones', distinct=True),
-                cierres_contabilidad=Count(
-                    'cierrecontabilidad',
-                    filter=Q(cierrecontabilidad__area__in=areas),
-                    distinct=True,
-                ),
-            )
-        )
-
-
-"""
-class DashboardViewSet(viewsets.ReadOnlyModelViewSet):
-    # ... [código completo del dashboard comentado] ...
-    pass
-
-class AnalistasDetalladoViewSet(viewsets.ReadOnlyModelViewSet):
-    # ... [código completo de analistas detallado comentado] ...
-    pass
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def parse_auxiliar_cxc(request):
-    # ... [código completo del parser CxC comentado] ...
-    pass
-"""
+# class AnalistaPerformanceViewSet(viewsets.ReadOnlyModelViewSet):
+#     serializer_class = AnalistaPerformanceSerializer
+#     permission_classes = [IsAuthenticatedAndActive & IsGerente]
+#
+#     def get_queryset(self):
+#         gerente = self.request.user
+#         areas = gerente.areas.all()
+#         return (
+#             Usuario.objects.filter(tipo_usuario='analista', areas__in=areas)
+#             .distinct()
+#             .annotate(
+#                 clientes_asignados=Count('asignaciones', distinct=True),
+#                 cierres_contabilidad=Count(
+#                     'cierrecontabilidad',
+#                     filter=Q(cierrecontabilidad__area__in=areas),
+#                     distinct=True,
+#                 ),
+#             )
+#         )
+#
+#
+# class DashboardViewSet(viewsets.ReadOnlyModelViewSet):
+#     # ... [código completo del dashboard comentado] ...
+#     pass
+#
+# class AnalistasDetalladoViewSet(viewsets.ReadOnlyModelViewSet):
+#     # ... [código completo de analistas detallado comentado] ...
+#     pass
+#
+# @api_view(['POST'])
+# @permission_classes([IsAuthenticated])
+# def parse_auxiliar_cxc(request):
+#     # ... [código completo del parser CxC comentado] ...
+#     pass
 
 # =============================================================================
 # FIN ENDPOINTS DESHABILITADOS
