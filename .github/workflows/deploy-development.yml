@@ -14,6 +14,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
+      - name: Copy .env file from server
+        run: |
+          # El archivo .env está en el repo pero en .gitignore
+          # Copiar desde la ubicación del proyecto persistente
+          cp /home/bdoq/dev/sgm-contabilidad/.env ${{ github.workspace }}/.env
+          cp /home/bdoq/dev/sgm-contabilidad/.env ${{ github.workspace }}/backend/.env
+          echo "✅ .env copied from server to workspace"
+      
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -39,18 +47,6 @@ jobs:
           # Copiar nuevo build
           mkdir -p backend/static
           cp -r dist backend/static/
-      
-      - name: Copy .env file from server
-        run: |
-          # Copiar .env del servidor persistente al workspace del runner
-          if [ -f "/home/bdoq/dev/sgm-contabilidad/.env" ]; then
-            cp /home/bdoq/dev/sgm-contabilidad/.env .
-            cp /home/bdoq/dev/sgm-contabilidad/.env backend/
-            echo "✅ .env copied from server"
-          else
-            echo "❌ ERROR: .env not found at /home/bdoq/dev/sgm-contabilidad/.env"
-            exit 1
-          fi
       
       - name: Collect static files
         run: |
