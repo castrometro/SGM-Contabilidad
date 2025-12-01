@@ -185,7 +185,7 @@ export const rgIniciarStep1 = async (archivo, cuentasGlobales = {}, mapeoCC = {}
 
 export const rgEstadoStep1 = async (taskId, clienteId = null) => {
   const query = clienteId ? `?cliente_id=${clienteId}` : '';
-  const response = await fetch(`${API_RINDE_GASTOS_BASE_URL}/step1/estado/${taskId}/${query}`, {
+  const response = await fetch(`${API_RINDE_GASTOS_BASE_URL}/step1/estado/${taskId}${query}`, {
     method: 'GET',
     headers: {
       ...getAuthHeaders(),
@@ -202,7 +202,7 @@ export const rgEstadoStep1 = async (taskId, clienteId = null) => {
 };
 
 export const rgDescargarStep1 = async (taskId, clienteId = null) => {
-  const baseUrl = `${API_RINDE_GASTOS_BASE_URL}/step1/descargar/${taskId}/`;
+  const baseUrl = `${API_RINDE_GASTOS_BASE_URL}/step1/descargar/${taskId}`;
   const query = clienteId ? `?cliente_id=${clienteId}` : '';
   const response = await fetch(`${baseUrl}${query}`, {
     method: 'GET',
