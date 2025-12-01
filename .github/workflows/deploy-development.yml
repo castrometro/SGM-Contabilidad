@@ -31,24 +31,22 @@ jobs:
       - name: Deploy to Django static directory
         run: |
           # Backup del build anterior
-          if [ -d "/home/outcontab1/dev/sgm-contabilidad/backend/static/dist" ]; then
-            rm -rf /home/outcontab1/dev/sgm-contabilidad/backend/static/dist.backup
-            mv /home/outcontab1/dev/sgm-contabilidad/backend/static/dist /home/outcontab1/dev/sgm-contabilidad/backend/static/dist.backup
+          if [ -d "backend/static/dist" ]; then
+            rm -rf backend/static/dist.backup
+            mv backend/static/dist backend/static/dist.backup
           fi
           
           # Copiar nuevo build
-          mkdir -p /home/outcontab1/dev/sgm-contabilidad/backend/static
-          cp -r dist /home/outcontab1/dev/sgm-contabilidad/backend/static/
+          mkdir -p backend/static
+          cp -r dist backend/static/
       
       - name: Collect static files
         run: |
-          cd /home/outcontab1/dev/sgm-contabilidad/backend
+          cd backend
           docker compose exec -T django python manage.py collectstatic --noinput
       
       - name: Restart Django
-        run: |
-          cd /home/outcontab1/dev/sgm-contabilidad
-          docker compose restart django
+        run: docker compose restart django
       
       - name: Deployment notification
         run: |
