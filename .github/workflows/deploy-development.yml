@@ -40,20 +40,19 @@ jobs:
           mkdir -p backend/static
           cp -r dist backend/static/
       
-      - name: Link environment file
-        run: |
-          # Crear symlink al .env del servidor de desarrollo
-          if [ -f "/home/bdoq/dev/sgm-contabilidad/.env" ]; then
-            ln -sf /home/bdoq/dev/sgm-contabilidad/.env .env
-          fi
-      
       - name: Collect static files
         run: |
+          # Copiar .env del servidor al directorio backend
+          if [ -f "/home/bdoq/dev/sgm-contabilidad/backend/.env" ]; then
+            cp /home/bdoq/dev/sgm-contabilidad/backend/.env backend/.env
+          fi
           cd backend
           docker compose exec -T django python manage.py collectstatic --noinput
       
       - name: Restart Django
-        run: docker compose restart django
+        run: |
+          cd backend
+          docker compose restart django
       
       - name: Deployment notification
         run: |
