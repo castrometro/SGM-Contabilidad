@@ -107,12 +107,10 @@ export const rgLeerHeadersExcel = async (archivo, clienteId) => {
     clienteId: clienteId
   });
 
-  const token = localStorage.getItem('token');
-
   const response = await fetch(`${API_RINDE_GASTOS_BASE_URL}/leer-headers/`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${token}`,
+      ...getAuthHeaders(),
     },
     body: formData,
   });
@@ -167,10 +165,11 @@ export const rgIniciarStep1 = async (archivo, cuentasGlobales = {}, mapeoCC = {}
   formData.append('cuenta_proveedores', cuentasGlobales.cuentaProveedores || '');
   formData.append('cuenta_gasto', cuentasGlobales.cuentaGasto || '');
 
-  const token = localStorage.getItem('token');
   const response = await fetch(`${API_RINDE_GASTOS_BASE_URL}/step1/iniciar/`, {
     method: 'POST',
-    headers: { 'Authorization': `Bearer ${token}` },
+    headers: {
+      ...getAuthHeaders(),
+    },
     body: formData,
   });
 
@@ -185,11 +184,12 @@ export const rgIniciarStep1 = async (archivo, cuentasGlobales = {}, mapeoCC = {}
 };
 
 export const rgEstadoStep1 = async (taskId, clienteId = null) => {
-  const token = localStorage.getItem('token');
   const query = clienteId ? `?cliente_id=${clienteId}` : '';
   const response = await fetch(`${API_RINDE_GASTOS_BASE_URL}/step1/estado/${taskId}/${query}`, {
     method: 'GET',
-    headers: { 'Authorization': `Bearer ${token}` },
+    headers: {
+      ...getAuthHeaders(),
+    },
   });
   if (!response.ok) {
     let errorText = 'Error consultando estado Step1 (RG)';
@@ -202,12 +202,13 @@ export const rgEstadoStep1 = async (taskId, clienteId = null) => {
 };
 
 export const rgDescargarStep1 = async (taskId, clienteId = null) => {
-  const token = localStorage.getItem('token');
   const baseUrl = `${API_RINDE_GASTOS_BASE_URL}/step1/descargar/${taskId}/`;
   const query = clienteId ? `?cliente_id=${clienteId}` : '';
   const response = await fetch(`${baseUrl}${query}`, {
     method: 'GET',
-    headers: { 'Authorization': `Bearer ${token}` },
+    headers: {
+      ...getAuthHeaders(),
+    },
   });
   if (!response.ok) {
     let errorText = 'Error descargando Step1 (RG)';
