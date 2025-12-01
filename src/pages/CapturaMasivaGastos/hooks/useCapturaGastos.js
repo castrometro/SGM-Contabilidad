@@ -4,8 +4,9 @@ import { CAPTURA_CONFIG, UI_MESSAGES } from "../config/capturaConfig";
 
 /**
  * Hook principal para manejar el estado y lógica de la captura masiva de gastos
+ * @param {string} clienteId - ID del cliente (requerido para validar permisos)
  */
-export const useCapturaGastos = () => {
+export const useCapturaGastos = (clienteId) => {
   const [archivo, setArchivo] = useState(null);
   const [procesando, setProcesando] = useState(false);
   const [resultados, setResultados] = useState(null);
@@ -23,7 +24,7 @@ export const useCapturaGastos = () => {
     if (taskId && procesando) {
       const interval = setInterval(async () => {
         try {
-          const estado = await rgEstadoStep1(taskId);
+          const estado = await rgEstadoStep1(taskId, clienteId);
           if (estado.estado === 'completado') {
             setResultados({
               total: estado.total_filas || 0,
@@ -48,7 +49,7 @@ export const useCapturaGastos = () => {
       }, 3000);
       return () => clearInterval(interval);
     }
-  }, [taskId, procesando]);
+  }, [taskId, procesando, clienteId]);
 
   // Validar formato de códigos CC
   const validarFormatoCC = (mapeo) => {
@@ -89,10 +90,16 @@ export const useCapturaGastos = () => {
     
     if (!archivoSeleccionado) return;
     
+    // Validar que tengamos clienteId antes de hacer la llamada
+    if (!clienteId) {
+      setError('Error: No se ha especificado el cliente');
+      return;
+    }
+    
     // Leer headers del Excel para configurar mapeo de centros de costos
     try {
       // Usar la nueva API exclusiva RG
-      const data = await rgLeerHeadersExcel(archivoSeleccionado);
+      const data = await rgLeerHeadersExcel(archivoSeleccionado, clienteId);
       console.log('📡 [RG] Respuesta del API leer-headers:', data);
       setHeadersExcel(data.headers);
       setCentrosCostoDetectados(data.centros_costo || {});
@@ -111,6 +118,12 @@ export const useCapturaGastos = () => {
     console.log('🗺️ mapeoCC:', mapeoCC);
     console.log('👀 mostrarMapeoCC:', mostrarMapeoCC);
     console.log('🏢 clienteServicioId:', clienteServicioId);
+    console.log('🆔 clienteId:', clienteId);
+    
+    if (!clienteId) {
+      setError('Error: No se ha especificado el cliente');
+      return;
+    }
     
     if (!archivo) {
       console.log('❌ Sin archivo');
@@ -180,7 +193,7 @@ export const useCapturaGastos = () => {
     
     try {
       // Llamar al endpoint RG asíncrono que exige parametros_contables
-      const respuesta = await rgIniciarStep1(archivo, cuentasGlobales, mapeoCC, clienteServicioId);
+      const respuesta = await rgIniciarStep1(archivo, cuentasGlobales, mapeoCC, clienteServicioId, clienteId);
       setTaskId(respuesta.task_id);
       console.log('✅ Step1 RG iniciado, task_id:', respuesta.task_id);
     } catch (error) {

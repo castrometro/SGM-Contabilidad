@@ -90,15 +90,21 @@ const enviarRindeGastos = async (endpoint, payload, method = 'POST') => {
   }
 };
 
-export const rgLeerHeadersExcel = async (archivo) => {
+export const rgLeerHeadersExcel = async (archivo, clienteId) => {
   const formData = new FormData();
   formData.append('archivo', archivo);
+  
+  // REQUERIDO: cliente_id para validar permisos
+  if (clienteId) {
+    formData.append('cliente_id', clienteId);
+  }
 
   // Console logs para entender qué enviamos
   console.log('[RG API] Enviando a leer-headers:', {
     nombre: archivo?.name,
     size: archivo?.size,
     type: archivo?.type,
+    clienteId: clienteId
   });
 
   const token = localStorage.getItem('token');
@@ -127,13 +133,18 @@ export const rgLeerHeadersExcel = async (archivo) => {
 };
 
 // === Flujo asíncrono Step1 (Redis) ===
-export const rgIniciarStep1 = async (archivo, cuentasGlobales = {}, mapeoCC = {}, clienteServicioId = null) => {
+export const rgIniciarStep1 = async (archivo, cuentasGlobales = {}, mapeoCC = {}, clienteServicioId = null, clienteId = null) => {
   const formData = new FormData();
   formData.append('archivo', archivo);
   
   // Agregar cliente_servicio_id si está disponible
   if (clienteServicioId) {
     formData.append('cliente_servicio_id', clienteServicioId);
+  }
+  
+  // REQUERIDO: cliente_id para validar permisos
+  if (clienteId) {
+    formData.append('cliente_id', clienteId);
   }
   
   // Backend espera 'parametros_contables' como JSON string
@@ -173,9 +184,10 @@ export const rgIniciarStep1 = async (archivo, cuentasGlobales = {}, mapeoCC = {}
   return data; // { task_id, estado, archivo_nombre }
 };
 
-export const rgEstadoStep1 = async (taskId) => {
+export const rgEstadoStep1 = async (taskId, clienteId = null) => {
   const token = localStorage.getItem('token');
-  const response = await fetch(`${API_RINDE_GASTOS_BASE_URL}/step1/estado/${taskId}/`, {
+  const query = clienteId ? `?cliente_id=${clienteId}` : '';
+  const response = await fetch(`${API_RINDE_GASTOS_BASE_URL}/step1/estado/${taskId}/${query}`, {
     method: 'GET',
     headers: { 'Authorization': `Bearer ${token}` },
   });

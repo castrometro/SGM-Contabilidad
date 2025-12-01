@@ -233,7 +233,7 @@ const CapturaMasivaGastos = () => {
     limpiarArchivo,
     setMapeoCC,
     setError
-  } = useCapturaGastos();
+  } = useCapturaGastos(clienteId); // Pasar clienteId al hook
 
   const [rendiciones, setRendiciones] = useState([]);
   const [cargandoRendiciones, setCargandoRendiciones] = useState(false);

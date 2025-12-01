@@ -26,33 +26,67 @@ def _extract_cliente_id(request):
     ) or request.query_params.get("cliente_id")
 
 
-def _user_has_rindegastos(user, cliente_id=None):
-    """Valida que el usuario tenga algún cliente con el servicio RindeGastos."""
-    base_qs = ServicioCliente.objects.filter(servicio__nombre__iexact="RindeGastos")
-
-    if cliente_id:
-        base_qs = base_qs.filter(cliente_id=cliente_id)
-
-    assigned_clientes = AsignacionClienteUsuario.objects.filter(usuario=user).values_list("cliente_id", flat=True)
-
-    if assigned_clientes.exists():
-        base_qs = base_qs.filter(cliente_id__in=assigned_clientes)
-    elif not user.is_staff and not user.is_superuser:
+def _user_has_rindegastos(user, cliente_id):
+    """
+    Valida que:
+    1. El usuario tenga asignado el cliente (o sea superuser/gerente/supervisor)
+    2. El cliente tenga el servicio RindeGastos habilitado
+    
+    Args:
+        user: Usuario que intenta acceder
+        cliente_id: ID del cliente (REQUERIDO)
+    
+    Returns:
+        bool: True si el usuario tiene acceso al cliente y el cliente tiene RindeGastos
+    """
+    if not cliente_id:
         return False
-
-    return base_qs.exists()
+    
+    # Verificar que el cliente tenga RindeGastos habilitado
+    tiene_servicio = ServicioCliente.objects.filter(
+        cliente_id=cliente_id,
+        servicio__nombre__iexact="RindeGastos"
+    ).exists()
+    
+    if not tiene_servicio:
+        return False
+    
+    # Superusuarios tienen acceso a todo
+    if user.is_staff or user.is_superuser:
+        return True
+    
+    # Gerentes y supervisores tienen acceso a todos los clientes
+    tipo_usuario = getattr(user, 'tipo_usuario', None)
+    if tipo_usuario in {'gerente', 'supervisor'}:
+        return True
+    
+    # Para otros usuarios, verificar asignación específica al cliente
+    return AsignacionClienteUsuario.objects.filter(
+        usuario=user,
+        cliente_id=cliente_id
+    ).exists()
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def leer_headers_excel_rindegastos(request):
     """
-    Contabilidad: Endpoint exclusivo RindeGastos para leer headers y detectar CC
-    como el rango entre la última columna 'Nombre cuenta' y la columna 'Fecha aprobacion'.
+    Endpoint para leer headers de Excel de RindeGastos.
+    
+    Valida:
+    1. Usuario tiene asignado el cliente
+    2. El cliente tiene el servicio RindeGastos habilitado
     """
     try:
         cliente_id = _extract_cliente_id(request)
+        
+        if not cliente_id:
+            return Response({'error': 'Se requiere cliente_id'}, status=400)
+        
+        # Validar ambas condiciones: asignación de usuario Y servicio habilitado
         if not _user_has_rindegastos(request.user, cliente_id):
-            return Response({'error': 'El servicio RindeGastos no está habilitado para este usuario/cliente'}, status=403)
+            return Response({
+                'error': 'No tienes acceso a este cliente o el servicio RindeGastos no está habilitado para este cliente'
+            }, status=403)
 
         if 'archivo' not in request.FILES:
             return Response({'error': 'No se encontró archivo en la petición'}, status=400)
@@ -157,8 +191,15 @@ def procesar_step1_rindegastos(request):
     """Inicia Step1 (asíncrono) exigiendo parametros_contables (JSON o campos sueltos)."""
     try:
         cliente_id = _extract_cliente_id(request)
+        
+        if not cliente_id:
+            return Response({'error': 'Se requiere cliente_id'}, status=400)
+        
+        # Validar ambas condiciones: asignación de usuario Y servicio habilitado
         if not _user_has_rindegastos(request.user, cliente_id):
-            return Response({'error': 'El servicio RindeGastos no está habilitado para este usuario/cliente'}, status=403)
+            return Response({
+                'error': 'No tienes acceso a este cliente o el servicio RindeGastos no está habilitado para este cliente'
+            }, status=403)
 
         if 'archivo' not in request.FILES:
             return Response({'error': 'No se encontró archivo en la petición'}, status=400)
@@ -226,8 +267,15 @@ def procesar_step1_rindegastos(request):
 def estado_step1_rindegastos(request, task_id):
     try:
         cliente_id = _extract_cliente_id(request)
+        
+        if not cliente_id:
+            return Response({'error': 'Se requiere cliente_id'}, status=400)
+        
+        # Validar ambas condiciones: asignación de usuario Y servicio habilitado
         if not _user_has_rindegastos(request.user, cliente_id):
-            return Response({'error': 'El servicio RindeGastos no está habilitado para este usuario/cliente'}, status=403)
+            return Response({
+                'error': 'No tienes acceso a este cliente o el servicio RindeGastos no está habilitado para este cliente'
+            }, status=403)
 
         r = get_redis_client_db1()
         meta_raw = r.get(f"rg_step1_meta:{request.user.id}:{task_id}")
@@ -252,11 +300,17 @@ def descargar_step1_rindegastos(request, task_id):
         rendicion = Rendicion.objects.filter(datos_archivo__task_id=task_id).select_related('cliente_servicio__cliente').first()
         rendicion_cliente_id = getattr(getattr(rendicion, 'cliente_servicio', None), 'cliente_id', None)
 
-        cliente_permiso = cliente_id or rendicion_cliente_id
-        if cliente_permiso and not _user_has_rindegastos(request.user, cliente_permiso):
-            return Response({'error': 'El servicio RindeGastos no está habilitado para este usuario/cliente'}, status=403)
-        if not cliente_permiso and not _user_has_rindegastos(request.user, cliente_id):
-            return Response({'error': 'El servicio RindeGastos no está habilitado para este usuario/cliente'}, status=403)
+        # Determinar el cliente a validar (prioridad: parámetro > rendición)
+        cliente_a_validar = cliente_id or rendicion_cliente_id
+        
+        if not cliente_a_validar:
+            return Response({'error': 'Se requiere cliente_id o una rendición asociada'}, status=400)
+        
+        # Validar ambas condiciones: asignación de usuario Y servicio habilitado
+        if not _user_has_rindegastos(request.user, cliente_a_validar):
+            return Response({
+                'error': 'No tienes acceso a este cliente o el servicio RindeGastos no está habilitado para este cliente'
+            }, status=403)
 
         if meta and meta.get('estado') != 'completado':
             return Response({'error': 'La tarea aún no ha sido completada'}, status=400)
