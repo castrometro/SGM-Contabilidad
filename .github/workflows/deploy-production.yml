@@ -40,12 +40,20 @@ jobs:
           mkdir -p backend/static
           cp -r dist backend/static/
       
+      - name: Copy .env file from server
+        run: |
+          # Copiar .env del servidor persistente al workspace del runner
+          if [ -f "/home/outcontab1/dev/sgm-contabilidad/.env" ]; then
+            cp /home/outcontab1/dev/sgm-contabilidad/.env .
+            cp /home/outcontab1/dev/sgm-contabilidad/.env backend/
+            echo "✅ .env copied from server"
+          else
+            echo "❌ ERROR: .env not found at /home/outcontab1/dev/sgm-contabilidad/.env"
+            exit 1
+          fi
+      
       - name: Collect static files
         run: |
-          # Copiar .env del servidor al directorio backend
-          if [ -f "/home/outcontab1/dev/sgm-contabilidad/backend/.env" ]; then
-            cp /home/outcontab1/dev/sgm-contabilidad/backend/.env backend/.env
-          fi
           cd backend
           docker compose exec -T django python manage.py collectstatic --noinput
       
