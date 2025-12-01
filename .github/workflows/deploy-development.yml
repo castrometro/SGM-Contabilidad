@@ -40,6 +40,13 @@ jobs:
           mkdir -p backend/static
           cp -r dist backend/static/
       
+      - name: Link environment file
+        run: |
+          # Crear symlink al .env del servidor de desarrollo
+          if [ -f "/home/bdoq/dev/sgm-contabilidad/.env" ]; then
+            ln -sf /home/bdoq/dev/sgm-contabilidad/.env .env
+          fi
+      
       - name: Collect static files
         run: |
           cd backend
